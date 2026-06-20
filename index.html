@@ -325,7 +325,7 @@
 
         .tab {
             flex: 1;
-            min-width: 0; /* важно для одинаковой ширины */
+            min-width: 0;
             padding: 10px 0;
             border: none;
             background: transparent;
@@ -345,10 +345,10 @@
             box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
         }
 
-        /* === КОНТЕНТ ВКЛАДОК — гарантируем одинаковую ширину === */
+        /* === КОНТЕНТ ВКЛАДОК === */
         .tab-content {
             display: none;
-            animation: fade 0.3s ease;
+            animation: none;
             width: 100%;
             padding: 0;
         }
@@ -357,15 +357,24 @@
             display: block;
         }
 
-        /* Все элементы внутри контента — 100% ширины */
-        .tab-content > * {
-            width: 100%;
-            box-sizing: border-box;
+        /* === АНИМАЦИЯ ДЛЯ ЭЛЕМЕНТОВ === */
+        .shop-item,
+        .achievement {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
-        @keyframes fade {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+        .shop-item.visible,
+        .achievement.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .shop-item,
+        .achievement {
+            width: 100%;
+            box-sizing: border-box;
         }
 
         /* === МАГАЗИН === */
@@ -379,8 +388,6 @@
             margin-bottom: 8px;
             border: 1px solid rgba(155, 89, 182, 0.08);
             transition: all 0.3s;
-            width: 100%;
-            box-sizing: border-box;
         }
 
         .shop-item:active {
@@ -438,8 +445,6 @@
             margin-bottom: 6px;
             border-left: 4px solid var(--purple);
             transition: all 0.3s;
-            width: 100%;
-            box-sizing: border-box;
         }
 
         .achievement.locked {
@@ -789,6 +794,8 @@
             } finally {
                 loading.style.display = 'none';
                 game.style.display = 'block';
+                // После загрузки запускаем анимацию для первой вкладки
+                setTimeout(() => animateTab('shop'), 300);
             }
         }
 
@@ -842,6 +849,7 @@
 
             coinEmoji.textContent = state.skin === 'gold' ? '🌟' : '🪙';
 
+            // Обновляем достижения (рендерим)
             renderAchievements();
 
             document.querySelectorAll('.shop-item-price').forEach(btn => {
@@ -851,6 +859,13 @@
                     btn.disabled = state.balance < price;
                 }
             });
+
+            // После обновления UI перезапускаем анимацию для текущей активной вкладки
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab) {
+                const tabId = activeTab.dataset.tab;
+                animateTab(tabId);
+            }
         }
 
         // === СИСТЕМА УРОВНЕЙ ===
@@ -1022,13 +1037,42 @@
             checkAchievements();
         }
 
+        // === АНИМАЦИЯ ПОЯВЛЕНИЯ ЭЛЕМЕНТОВ В ТАБАХ ===
+        function animateTab(tabId) {
+            const tabContent = document.getElementById(`tab-${tabId}`);
+            if (!tabContent) return;
+            // Находим все дочерние элементы, которые должны анимироваться (shop-item, achievement)
+            let items;
+            if (tabId === 'shop') {
+                items = tabContent.querySelectorAll('.shop-item');
+            } else if (tabId === 'achievements') {
+                items = tabContent.querySelectorAll('.achievement');
+            } else {
+                return;
+            }
+            // Сначала скрываем все
+            items.forEach(el => el.classList.remove('visible'));
+            // С задержкой показываем каждый
+            items.forEach((el, index) => {
+                setTimeout(() => {
+                    el.classList.add('visible');
+                }, 80 * (index + 1)); // каскад с задержкой 80ms
+            });
+        }
+
         // === ВКЛАДКИ ===
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
+                // Переключаем активный класс
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
-                document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+                const tabId = tab.dataset.tab;
+                // Показываем нужный контент
+                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                const targetContent = document.getElementById(`tab-${tabId}`);
+                targetContent.classList.add('active');
+                // Запускаем анимацию для элементов в этой вкладке
+                animateTab(tabId);
             });
         });
 
@@ -1077,6 +1121,9 @@
 
             tg.onEvent('viewportChanged', saveData);
             window.addEventListener('beforeunload', saveData);
+
+            // Анимация для активной вкладки (магазин) после загрузки
+            setTimeout(() => animateTab('shop'), 500);
 
             updateUI();
             checkAchievements();
