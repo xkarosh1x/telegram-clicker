@@ -348,13 +348,18 @@
         /* === КОНТЕНТ ВКЛАДОК === */
         .tab-content {
             display: none;
-            animation: none;
             width: 100%;
             padding: 0;
         }
 
         .tab-content.active {
             display: block;
+            animation: contentFade 0.3s ease;
+        }
+
+        @keyframes contentFade {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* === АНИМАЦИЯ ДЛЯ ЭЛЕМЕНТОВ === */
@@ -646,13 +651,13 @@
 
             <!-- Вкладки -->
             <div class="tabs">
-                <button class="tab active" data-tab="shop">🛒</button>
+                <button class="tab" data-tab="shop">🛒</button>
                 <button class="tab" data-tab="achievements">🏆</button>
                 <button class="tab" data-tab="referral">👥</button>
             </div>
 
             <!-- Магазин -->
-            <div class="tab-content active" id="tab-shop">
+            <div class="tab-content" id="tab-shop">
                 <div class="shop-item">
                     <div class="shop-item-info">
                         <div class="shop-item-title">⚡ Усиление</div>
@@ -794,8 +799,6 @@
             } finally {
                 loading.style.display = 'none';
                 game.style.display = 'block';
-                // После загрузки запускаем анимацию для первой вкладки
-                setTimeout(() => animateTab('shop'), 300);
             }
         }
 
@@ -849,9 +852,10 @@
 
             coinEmoji.textContent = state.skin === 'gold' ? '🌟' : '🪙';
 
-            // Обновляем достижения (рендерим)
+            // Рендерим достижения (но они не показываются, пока вкладка не активна)
             renderAchievements();
 
+            // Обновляем кнопки магазина (даже если вкладка скрыта)
             document.querySelectorAll('.shop-item-price').forEach(btn => {
                 const priceText = btn.textContent.replace(/[^0-9]/g, '');
                 const price = parseInt(priceText, 10);
@@ -859,13 +863,6 @@
                     btn.disabled = state.balance < price;
                 }
             });
-
-            // После обновления UI перезапускаем анимацию для текущей активной вкладки
-            const activeTab = document.querySelector('.tab.active');
-            if (activeTab) {
-                const tabId = activeTab.dataset.tab;
-                animateTab(tabId);
-            }
         }
 
         // === СИСТЕМА УРОВНЕЙ ===
@@ -912,6 +909,11 @@
             if (unlocked.length > 0) {
                 saveData();
                 updateUI();
+                // Если вкладка достижений активна, перезапускаем анимацию
+                const activeTab = document.querySelector('.tab.active');
+                if (activeTab && activeTab.dataset.tab === 'achievements') {
+                    animateTab('achievements');
+                }
             }
         }
 
@@ -1041,7 +1043,6 @@
         function animateTab(tabId) {
             const tabContent = document.getElementById(`tab-${tabId}`);
             if (!tabContent) return;
-            // Находим все дочерние элементы, которые должны анимироваться (shop-item, achievement)
             let items;
             if (tabId === 'shop') {
                 items = tabContent.querySelectorAll('.shop-item');
@@ -1056,22 +1057,22 @@
             items.forEach((el, index) => {
                 setTimeout(() => {
                     el.classList.add('visible');
-                }, 80 * (index + 1)); // каскад с задержкой 80ms
+                }, 80 * (index + 1));
             });
         }
 
         // === ВКЛАДКИ ===
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                // Переключаем активный класс
+                // Убираем активность со всех вкладок и контента
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                // Активируем текущую вкладку
                 tab.classList.add('active');
                 const tabId = tab.dataset.tab;
-                // Показываем нужный контент
-                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
                 const targetContent = document.getElementById(`tab-${tabId}`);
                 targetContent.classList.add('active');
-                // Запускаем анимацию для элементов в этой вкладке
+                // Запускаем анимацию для элементов (если это shop или achievements)
                 animateTab(tabId);
             });
         });
@@ -1122,9 +1123,7 @@
             tg.onEvent('viewportChanged', saveData);
             window.addEventListener('beforeunload', saveData);
 
-            // Анимация для активной вкладки (магазин) после загрузки
-            setTimeout(() => animateTab('shop'), 500);
-
+            // Изначально никакая вкладка не активна – контент скрыт
             updateUI();
             checkAchievements();
         });
