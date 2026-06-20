@@ -293,36 +293,22 @@ def run_health_server():
     server.serve_forever()
 
 # ===================================================================
-# 5. ОЧИСТКА И ЗАВЕРШЕНИЕ СТАРЫХ СЕССИЙ
+# 5. ОЧИСТКА ВЕБХУКА И СБРОС ОБНОВЛЕНИЙ (без logout)
 # ===================================================================
-def force_logout_and_clear():
-    """Принудительно завершает все старые сессии и очищает вебхук"""
+def clear_webhook_and_updates():
     try:
-        # 1. Логаут – завершает все активные сессии
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/logout"
-        resp = requests.get(url)
-        logger.info(f"logout: {resp.json()}")
-    except Exception as e:
-        logger.error(f"logout error: {e}")
-    
-    try:
-        # 2. Удаляем вебхук
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
         resp = requests.get(url)
         logger.info(f"deleteWebhook: {resp.json()}")
     except Exception as e:
         logger.error(f"deleteWebhook error: {e}")
-    
     try:
-        # 3. Сбрасываем очередь обновлений
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
         resp = requests.get(url, params={'offset': -1, 'timeout': 1})
         logger.info(f"getUpdates clear: {resp.json()}")
     except Exception as e:
         logger.error(f"getUpdates error: {e}")
-    
     try:
-        # 4. Устанавливаем пустой вебхук (гарантия)
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
         resp = requests.get(url, params={'url': ''})
         logger.info(f"setWebhook empty: {resp.json()}")
@@ -333,8 +319,8 @@ def force_logout_and_clear():
 # 6. MAIN
 # ===================================================================
 def main():
-    # Жёсткая очистка перед запуском
-    force_logout_and_clear()
+    # Очистка перед запуском (без logout)
+    clear_webhook_and_updates()
     
     # Запускаем health-сервер
     thread = threading.Thread(target=run_health_server, daemon=True)
@@ -347,22 +333,21 @@ def main():
     
     logger.info("Бот запущен, начинаем polling...")
     
-    # Запускаем polling с защитой
+    # Запускаем polling с защитой от конфликтов
     while True:
         try:
             app.run_polling(
                 allowed_updates=Update.ALL_TYPES,
                 drop_pending_updates=True,
                 timeout=30,
-                poll_interval=1.0  # меньше нагрузки
+                poll_interval=1.0
             )
         except Exception as e:
             logger.error(f"Polling error: {e}")
             if "Conflict" in str(e):
                 logger.info("Обнаружен конфликт, перезапуск через 10 секунд...")
                 time.sleep(10)
-                # Повторная очистка
-                force_logout_and_clear()
+                clear_webhook_and_updates()
                 continue  # перезапускаем цикл
             else:
                 raise
