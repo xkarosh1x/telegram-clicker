@@ -6,7 +6,7 @@
     <title>Кликер</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* === СТИЛИ (без изменений, те же, что в предыдущем ответе) === */
+        /* === СТИЛИ (те же, что и ранее, без изменений) === */
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --bg: #0b0719; --card-bg: rgba(30,20,50,0.85); --purple: #9b59b6; --purple-dark: #7d3c98; --purple-light: #a29bfe; --neon: #fd79a8; --gold: #fdcb6e; --text: #f0e6ff; --text-muted: #b8a5d6; --shadow: 0 8px 32px rgba(155,89,182,0.3); --radius: 20px; --btn-gradient: linear-gradient(135deg, #9b59b6, #7d3c98); --tab-active: linear-gradient(135deg, #9b59b6, #7d3c98); }
         body.theme-blue { --bg: #0a1628; --card-bg: rgba(16,30,60,0.85); --purple:#3498db; --purple-dark:#2980b9; --purple-light:#5dade2; --neon:#48c9b0; --text:#eaf2f8; --text-muted:#a9cce3; --shadow:0 8px 32px rgba(52,152,219,0.3); --btn-gradient:linear-gradient(135deg,#3498db,#2980b9); --tab-active:linear-gradient(135deg,#3498db,#2980b9); }
@@ -415,7 +415,7 @@
             soundBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.sound === sound));
         }
 
-        // === ЛОКАЛЬНОЕ СОХРАНЕНИЕ (всегда) ===
+        // === ЛОКАЛЬНОЕ СОХРАНЕНИЕ ===
         function saveToLocalStorage() {
             try {
                 const data = {
@@ -432,15 +432,15 @@
                     lastDailyBonus: state.lastDailyBonus
                 };
                 localStorage.setItem(`clicker_${userId}`, JSON.stringify(data));
-                console.log('Данные сохранены в localStorage');
+                console.log('localStorage saved');
             } catch(e) {
-                console.error('Ошибка сохранения в localStorage:', e);
+                console.error('localStorage error:', e);
             }
         }
 
-        // === API ===
+        // === ЗАГРУЗКА ===
         async function loadData() {
-            // Сначала загружаем из localStorage
+            // Сначала локально
             try {
                 const saved = localStorage.getItem(`clicker_${userId}`);
                 if (saved) {
@@ -449,16 +449,16 @@
                     updateUI();
                     checkAchievements();
                     startAutoClicker();
-                    console.log('Загружено из localStorage');
+                    console.log('loaded from localStorage');
                 }
             } catch(e) {
-                console.error('Ошибка загрузки из localStorage:', e);
+                console.error('localStorage load error:', e);
             }
 
-            // Потом синхронизируем с сервером
+            // Потом с сервера
             try {
                 const res = await fetch(`${API_URL}?userId=${userId}`);
-                if (!res.ok) throw new Error('Ошибка загрузки с сервера');
+                if (!res.ok) throw new Error('Server error');
                 const data = await res.json();
                 state = { ...state, ...data };
                 state.dailyBonusClaimed = data.dailyBonusClaimed === true || data.dailyBonusClaimed === 'true';
@@ -467,22 +467,26 @@
                 const today = new Date().toDateString();
                 if (state.lastDailyBonus === today) state.dailyBonusClaimed = true;
                 else state.dailyBonusClaimed = false;
-                // Сохраняем свежие данные в localStorage
                 saveToLocalStorage();
                 updateUI();
                 checkAchievements();
                 startAutoClicker();
-                console.log('Синхронизировано с сервером');
+                console.log('synced with server');
             } catch(e) {
-                console.error('Ошибка синхронизации с сервером:', e);
-                // Если сервер недоступен, продолжаем работать с локальными данными
-                showToast('Работаем в офлайн-режиме', 2000);
+                console.error('server sync error:', e);
+                showToast('Работаем офлайн', 1500);
             } finally {
                 loading.style.display = 'none';
                 game.style.display = 'block';
                 applyTheme(settings.theme);
                 applySound(settings.sound);
+                // Принудительно рендерим скины
                 renderSkins();
+                // Если вкладка скинов активна, запускаем анимацию
+                const activeTab = document.querySelector('.tab.active');
+                if (activeTab && activeTab.dataset.tab === 'skins') {
+                    animateTab('skins');
+                }
             }
         }
 
@@ -490,20 +494,17 @@
             if (isSaving) return;
             isSaving = true;
             try {
-                // Всегда сохраняем локально
                 saveToLocalStorage();
-
-                // Пытаемся отправить на сервер
                 const res = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId, ...state })
                 });
-                if (!res.ok) throw new Error('Ошибка сохранения на сервере');
-                console.log('Данные отправлены на сервер');
+                if (!res.ok) throw new Error('Server save error');
+                console.log('saved to server');
             } catch(e) {
-                console.error('Ошибка сохранения:', e);
-                showToast('⚠️ Данные сохранены локально', 1500);
+                console.error('save error:', e);
+                showToast('⚠️ Сохранено локально', 1500);
             } finally {
                 isSaving = false;
             }
@@ -530,7 +531,6 @@
             dailyBonusBtn.classList.toggle('claimed', state.dailyBonusClaimed);
             dailyBonusBtn.textContent = state.dailyBonusClaimed ? '✅ Получен' : '🎁 Бонус';
 
-            // Применяем активный скин
             const activeSkin = SKINS.find(s => s.id === state.skin) || SKINS[0];
             coinEmoji.textContent = activeSkin.emoji;
             clickBtn.style.background = activeSkin.gradient;
@@ -583,6 +583,7 @@
 
         function renderAchievements() {
             const list = document.getElementById('achievementsList');
+            if (!list) return;
             list.innerHTML = ACHIEVEMENTS.map(ach => {
                 const unlocked = state.achievements.includes(ach.id);
                 const hasSkin = ach.skinReward && state.unlockedSkins.includes(ach.skinReward);
@@ -597,11 +598,11 @@
             }).join('');
         }
 
-        // === СКИНЫ (надёжная отрисовка) ===
+        // === СКИНЫ (без ошибок) ===
         function renderSkins() {
             try {
                 if (!skinsList) {
-                    console.error('skinsList не найден');
+                    console.error('skinsList not found');
                     return;
                 }
                 skinsList.innerHTML = '';
@@ -666,8 +667,10 @@
                     skinsList.appendChild(item);
                 });
             } catch(e) {
-                console.error('Ошибка в renderSkins:', e);
-                skinsList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">⚠️ Ошибка загрузки скинов</div>';
+                console.error('renderSkins error:', e);
+                if (skinsList) {
+                    skinsList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">⚠️ Ошибка загрузки скинов</div>';
+                }
             }
         }
 
@@ -840,8 +843,17 @@
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
                 tab.classList.add('active');
-                document.getElementById(`tab-${tabId}`).classList.add('active');
-                animateTab(tabId);
+                const targetContent = document.getElementById(`tab-${tabId}`);
+                targetContent.classList.add('active');
+                // Если это вкладка скинов – перерисовываем и запускаем анимацию
+                if (tabId === 'skins') {
+                    renderSkins();
+                    animateTab('skins');
+                } else if (tabId === 'shop') {
+                    animateTab('shop');
+                } else if (tabId === 'achievements') {
+                    animateTab('achievements');
+                }
             });
         });
 
@@ -892,6 +904,20 @@
 
             tg.onEvent('viewportChanged', saveData);
             window.addEventListener('beforeunload', saveData);
+
+            // После загрузки проверяем активную вкладку и анимируем
+            const activeTab = document.querySelector('.tab.active');
+            if (activeTab) {
+                const tabId = activeTab.dataset.tab;
+                if (tabId === 'skins') {
+                    renderSkins();
+                    animateTab('skins');
+                } else if (tabId === 'shop') {
+                    animateTab('shop');
+                } else if (tabId === 'achievements') {
+                    animateTab('achievements');
+                }
+            }
 
             updateUI();
             checkAchievements();
