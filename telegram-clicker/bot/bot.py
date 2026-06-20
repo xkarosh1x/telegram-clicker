@@ -6,7 +6,7 @@ from supabase import create_client, Client
 
 # --- Config ---
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-WEBAPP_URL = 'https://твой-username.github.io/telegram-clicker'  # GitHub Pages URL
+WEBAPP_URL = 'https://github.com/xkarosh1x/telegram-clicker'  # GitHub Pages URL
 
 # Supabase
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
