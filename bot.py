@@ -24,12 +24,12 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("Supabase credentials not set!")
     exit(1)
 
-# --- ИМПОРТЫ TELEGRAM (после проверки токена) ---
+# --- ИМПОРТЫ TELEGRAM ---
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # ===================================================================
-# 1. SUPABASE CLIENT (простой REST-клиент)
+# 1. SUPABASE CLIENT
 # ===================================================================
 class SupabaseClient:
     def __init__(self, url, key):
@@ -116,14 +116,13 @@ class SupabaseTable:
 supabase = SupabaseClient(SUPABASE_URL, SUPABASE_KEY)
 
 # ===================================================================
-# 2. ФУНКЦИИ РАБОТЫ С БАЗОЙ ДАННЫХ
+# 2. ФУНКЦИИ РАБОТЫ С БАЗОЙ
 # ===================================================================
 def get_or_create_user(user_id: str):
     try:
         result = supabase.table('users').select('*').eq('user_id', user_id).execute()
         if result and len(result) > 0:
             return result[0]
-        
         new_user = {
             'user_id': user_id,
             'balance': 0,
@@ -151,13 +150,10 @@ def update_user(user_id: str, data: dict):
         return False
 
 # ===================================================================
-# 3. ОБРАБОТЧИКИ КОМАНД
+# 3. ОБРАБОТЧИКИ
 # ===================================================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"Получена команда /start от {update.effective_user.id}")
     user_id = str(update.effective_user.id)
-    
-    # Реферальная система
     if context.args and context.args[0].startswith('ref_'):
         try:
             import base64
@@ -179,7 +175,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user:
         await update.message.reply_text("❌ Ошибка базы данных.")
         return
-    
     keyboard = [
         [InlineKeyboardButton("🎮 Открыть Кликер", web_app={'url': WEBAPP_URL})],
         [
@@ -191,7 +186,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("👥 Рефералы", callback_data='ref_info')
         ]
     ]
-    
     username = update.effective_user.first_name or "Игрок"
     await update.message.reply_text(
         f"🪙 *Привет, {username}!*\n\n"
@@ -211,7 +205,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user:
         await query.edit_message_text("❌ Ошибка.")
         return
-    
     if query.data == 'stats':
         text = (
             "📊 *Твоя статистика*\n\n"
@@ -222,7 +215,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👥 Рефералов: `{user.get('ref_count', 0)}`"
         )
         await query.edit_message_text(text, parse_mode='Markdown')
-    
     elif query.data == 'top':
         try:
             result = supabase.table('users').select('user_id, balance').order('balance', desc=True).limit(10).execute()
@@ -237,7 +229,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"Top error: {e}")
             await query.edit_message_text("❌ Ошибка загрузки топа")
-    
     elif query.data == 'daily_bonus':
         today = datetime.utcnow().date().isoformat()
         if user.get('last_daily_bonus') == today:
@@ -257,7 +248,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📊 Баланс: `{new_balance}`",
             parse_mode='Markdown'
         )
-    
     elif query.data == 'ref_info':
         import base64
         code = base64.b64encode(f"{user_id}:{datetime.utcnow().timestamp()}".encode()).decode()[:16]
@@ -275,7 +265,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown',
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-    
     elif query.data == 'copy_ref':
         import base64
         code = base64.b64encode(f"{user_id}:{datetime.utcnow().timestamp()}".encode()).decode()[:16]
@@ -287,7 +276,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # ===================================================================
-# 4. HEALTH-СЕРВЕР ДЛЯ RENDER (чтобы видел порт)
+# 4. HEALTH-СЕРВЕР
 # ===================================================================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -304,22 +293,36 @@ def run_health_server():
     server.serve_forever()
 
 # ===================================================================
-# 5. ФУНКЦИЯ ОЧИСТКИ ВЕБХУКА И СБРОСА ОБНОВЛЕНИЙ
+# 5. ОЧИСТКА И ЗАВЕРШЕНИЕ СТАРЫХ СЕССИЙ
 # ===================================================================
-def clear_webhook_and_updates():
+def force_logout_and_clear():
+    """Принудительно завершает все старые сессии и очищает вебхук"""
     try:
+        # 1. Логаут – завершает все активные сессии
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/logout"
+        resp = requests.get(url)
+        logger.info(f"logout: {resp.json()}")
+    except Exception as e:
+        logger.error(f"logout error: {e}")
+    
+    try:
+        # 2. Удаляем вебхук
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
         resp = requests.get(url)
         logger.info(f"deleteWebhook: {resp.json()}")
     except Exception as e:
         logger.error(f"deleteWebhook error: {e}")
+    
     try:
+        # 3. Сбрасываем очередь обновлений
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
         resp = requests.get(url, params={'offset': -1, 'timeout': 1})
         logger.info(f"getUpdates clear: {resp.json()}")
     except Exception as e:
         logger.error(f"getUpdates error: {e}")
+    
     try:
+        # 4. Устанавливаем пустой вебхук (гарантия)
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
         resp = requests.get(url, params={'url': ''})
         logger.info(f"setWebhook empty: {resp.json()}")
@@ -327,13 +330,13 @@ def clear_webhook_and_updates():
         logger.error(f"setWebhook error: {e}")
 
 # ===================================================================
-# 6. MAIN С ЗАЩИТОЙ ОТ КОНФЛИКТОВ
+# 6. MAIN
 # ===================================================================
 def main():
-    # Очистка перед запуском
-    clear_webhook_and_updates()
+    # Жёсткая очистка перед запуском
+    force_logout_and_clear()
     
-    # Запускаем health-сервер в фоновом потоке
+    # Запускаем health-сервер
     thread = threading.Thread(target=run_health_server, daemon=True)
     thread.start()
     
@@ -344,20 +347,25 @@ def main():
     
     logger.info("Бот запущен, начинаем polling...")
     
-    # Запускаем polling с защитой от конфликтов
-    try:
-        app.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,
-            timeout=30,
-            poll_interval=0.5
-        )
-    except Exception as e:
-        logger.error(f"Polling error: {e}")
-        if "Conflict" in str(e):
-            logger.info("Обнаружен конфликт, перезапуск через 5 секунд...")
-            time.sleep(5)
-            main()  # рекурсивный перезапуск
+    # Запускаем polling с защитой
+    while True:
+        try:
+            app.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True,
+                timeout=30,
+                poll_interval=1.0  # меньше нагрузки
+            )
+        except Exception as e:
+            logger.error(f"Polling error: {e}")
+            if "Conflict" in str(e):
+                logger.info("Обнаружен конфликт, перезапуск через 10 секунд...")
+                time.sleep(10)
+                # Повторная очистка
+                force_logout_and_clear()
+                continue  # перезапускаем цикл
+            else:
+                raise
 
 if __name__ == '__main__':
     main()
