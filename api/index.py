@@ -1,14 +1,13 @@
-import json
 import os
+import json
 from datetime import datetime
 from flask import Flask, request, jsonify
-from supabase import create_client, Client
 from flask_cors import CORS
+from supabase import create_client, Client
 
 app = Flask(__name__)
-CORS(app)  # разрешаем кросс-доменные запросы
+CORS(app)
 
-# --- Supabase ---
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_ANON_KEY')
 
@@ -29,7 +28,6 @@ def handle_user():
             if response.data:
                 return jsonify(response.data[0])
             else:
-                # Создаём нового пользователя
                 new_user = {
                     'user_id': user_id,
                     'balance': 0,
@@ -55,7 +53,6 @@ def handle_user():
             return jsonify({'error': 'userId required'}), 400
 
         try:
-            # Обновляем данные пользователя
             update_data = {
                 'balance': data.get('balance', 0),
                 'click_power': data.get('clickPower', 1),
@@ -73,6 +70,5 @@ def handle_user():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
-# Для локального запуска (не используется на Vercel)
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+# Vercel требует, чтобы приложение было доступно как 'app'
+# Если используешь Flask, то просто app — подходит.
