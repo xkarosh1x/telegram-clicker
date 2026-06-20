@@ -6,7 +6,7 @@
     <title>Кликер</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* === СТИЛИ === */
+        /* === СТИЛИ (без изменений) === */
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --bg: #0b0719; --card-bg: rgba(30,20,50,0.85); --purple: #9b59b6; --purple-dark: #7d3c98; --purple-light: #a29bfe; --neon: #fd79a8; --gold: #fdcb6e; --text: #f0e6ff; --text-muted: #b8a5d6; --shadow: 0 8px 32px rgba(155,89,182,0.3); --radius: 20px; --btn-gradient: linear-gradient(135deg, #9b59b6, #7d3c98); --tab-active: linear-gradient(135deg, #9b59b6, #7d3c98); }
         body.theme-blue { --bg: #0a1628; --card-bg: rgba(16,30,60,0.85); --purple:#3498db; --purple-dark:#2980b9; --purple-light:#5dade2; --neon:#48c9b0; --text:#eaf2f8; --text-muted:#a9cce3; --shadow:0 8px 32px rgba(52,152,219,0.3); --btn-gradient:linear-gradient(135deg,#3498db,#2980b9); --tab-active:linear-gradient(135deg,#3498db,#2980b9); }
@@ -155,7 +155,7 @@
                 <div class="progress-track"><div class="progress-fill" id="levelProgress" style="width:0%;"></div></div>
             </div>
 
-            <!-- Вкладки (добавлена новая — Скины) -->
+            <!-- Вкладки -->
             <div class="tabs">
                 <button class="tab" data-tab="shop">🛒</button>
                 <button class="tab" data-tab="achievements">🏆</button>
@@ -176,7 +176,7 @@
                 <div id="achievementsList"></div>
             </div>
 
-            <!-- Скины (новая вкладка) -->
+            <!-- Скины -->
             <div class="tab-content" id="tab-skins">
                 <div id="skinsList"></div>
             </div>
@@ -344,7 +344,7 @@
             toast._timeout = setTimeout(() => toast.classList.remove('show'), duration);
         }
 
-        // === ЗВУКИ ===
+        // === ЗВУКИ (мягкие) ===
         let audioCtx = null;
         function getAudioContext() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -555,70 +555,82 @@
             }).join('');
         }
 
-        // === СКИНЫ ===
+        // === СКИНЫ (с защитой от ошибок) ===
         function renderSkins() {
-            skinsList.innerHTML = '';
-            SKINS.forEach(skin => {
-                const isUnlocked = state.unlockedSkins.includes(skin.id);
-                const isActive = state.skin === skin.id;
-                const canBuy = !isUnlocked && skin.price > 0 && state.balance >= skin.price;
-                const isFreeAchievement = !isUnlocked && skin.price === 0 && skin.achievementId !== null;
-                const isDefault = skin.id === 'default';
+            try {
+                // Проверяем, что элемент существует
+                if (!skinsList) {
+                    console.error('skinsList не найден');
+                    return;
+                }
+                skinsList.innerHTML = '';
+                SKINS.forEach(skin => {
+                    const isUnlocked = state.unlockedSkins.includes(skin.id);
+                    const isActive = state.skin === skin.id;
+                    const canBuy = !isUnlocked && skin.price > 0 && state.balance >= skin.price;
+                    const isFreeAchievement = !isUnlocked && skin.price === 0 && skin.achievementId !== null;
+                    const isDefault = skin.id === 'default';
 
-                let statusText = '';
-                if (isActive) statusText = '✅ Активен';
-                else if (isUnlocked) statusText = '🔓 Активировать';
-                else if (isFreeAchievement) statusText = '🏆 За достижение';
-                else if (skin.price === 0) statusText = 'Бесплатно';
-                else statusText = `${skin.price} 🪙`;
+                    let statusText = '';
+                    if (isActive) statusText = '✅ Активен';
+                    else if (isUnlocked) statusText = '🔓 Активировать';
+                    else if (isFreeAchievement) statusText = '🏆 За достижение';
+                    else if (skin.price === 0) statusText = 'Бесплатно';
+                    else statusText = `${skin.price} 🪙`;
 
-                const btn = document.createElement('button');
-                btn.className = 'shop-item-price';
-                btn.textContent = statusText;
-                btn.disabled = !(isUnlocked || canBuy || (skin.price === 0 && !isUnlocked && !isFreeAchievement));
-                if (isActive) btn.disabled = true;
+                    const btn = document.createElement('button');
+                    btn.className = 'shop-item-price';
+                    btn.textContent = statusText;
+                    btn.disabled = !(isUnlocked || canBuy || (skin.price === 0 && !isUnlocked && !isFreeAchievement));
+                    if (isActive) btn.disabled = true;
 
-                btn.addEventListener('click', () => {
-                    if (isActive) return;
-                    if (isUnlocked) {
-                        state.skin = skin.id;
-                        updateUI();
-                        saveData();
-                        showToast(`🎨 Скин "${skin.name}" активирован!`);
-                        return;
-                    }
-                    if (canBuy) {
-                        state.balance -= skin.price;
-                        state.unlockedSkins.push(skin.id);
-                        state.skin = skin.id;
-                        updateUI();
-                        saveData();
-                        showToast(`🎨 Скин "${skin.name}" куплен и активирован!`);
-                        playSound('boost');
-                        return;
-                    }
-                    if (skin.price === 0 && !isUnlocked && !isFreeAchievement) {
-                        state.unlockedSkins.push(skin.id);
-                        state.skin = skin.id;
-                        updateUI();
-                        saveData();
-                        showToast(`🎨 Скин "${skin.name}" активирован!`);
-                        return;
-                    }
-                    showToast('❌ Недоступно');
+                    btn.addEventListener('click', () => {
+                        if (isActive) return;
+                        if (isUnlocked) {
+                            state.skin = skin.id;
+                            updateUI();
+                            saveData();
+                            showToast(`🎨 Скин "${skin.name}" активирован!`);
+                            return;
+                        }
+                        if (canBuy) {
+                            state.balance -= skin.price;
+                            state.unlockedSkins.push(skin.id);
+                            state.skin = skin.id;
+                            updateUI();
+                            saveData();
+                            showToast(`🎨 Скин "${skin.name}" куплен и активирован!`);
+                            playSound('boost');
+                            return;
+                        }
+                        if (skin.price === 0 && !isUnlocked && !isFreeAchievement) {
+                            state.unlockedSkins.push(skin.id);
+                            state.skin = skin.id;
+                            updateUI();
+                            saveData();
+                            showToast(`🎨 Скин "${skin.name}" активирован!`);
+                            return;
+                        }
+                        showToast('❌ Недоступно');
+                    });
+
+                    const item = document.createElement('div');
+                    item.className = 'skin-item';
+                    item.innerHTML = `
+                        <div class="skin-item-info">
+                            <div class="skin-item-title">${skin.emoji} ${skin.name} ${isActive ? '⭐' : ''}</div>
+                            <div class="skin-item-desc">${skin.achievementId ? '🎁 За достижение' : (skin.price === 0 ? 'Бесплатно' : `${skin.price} монет`)}</div>
+                        </div>
+                    `;
+                    item.appendChild(btn);
+                    skinsList.appendChild(item);
                 });
-
-                const item = document.createElement('div');
-                item.className = 'skin-item';
-                item.innerHTML = `
-                    <div class="skin-item-info">
-                        <div class="skin-item-title">${skin.emoji} ${skin.name} ${isActive ? '⭐' : ''}</div>
-                        <div class="skin-item-desc">${skin.achievementId ? '🎁 За достижение' : (skin.price === 0 ? 'Бесплатно' : `${skin.price} монет`)}</div>
-                    </div>
-                `;
-                item.appendChild(btn);
-                skinsList.appendChild(item);
-            });
+            } catch(e) {
+                console.error('Ошибка в renderSkins:', e);
+                showToast('❌ Ошибка при загрузке скинов', 3000);
+                // Пытаемся восстановить: показываем хотя бы часть скинов без ошибок
+                // Но мы уже очистили список, поэтому просто ничего не добавляем
+            }
         }
 
         // === АНИМАЦИЯ ПОЛУЧЕНИЯ СКИНА ===
