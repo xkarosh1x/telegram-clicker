@@ -175,7 +175,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user = get_or_create_user(user_id)
     if not user:
-        await update.message.reply_text("❌ Ошибка базы данных.")
+        await update.message.reply_text("❌ Ошибка базы данных, повторите попытку!")
         return
     
     keyboard = [
