@@ -146,7 +146,6 @@
             50% { transform: translateY(-4px); }
         }
 
-        /* Визуальный фидбек при клике – цвет меняется */
         .balance.pop {
             background: linear-gradient(135deg, #ffd700, #ff6b6b);
             -webkit-background-clip: text;
@@ -185,7 +184,6 @@
             animation: none;
         }
 
-        /* === ЭФФЕКТ НАВЕДЕНИЯ ДЛЯ ПК === */
         @media (hover: hover) {
             .click-btn:hover .hover-glow {
                 opacity: 1;
@@ -228,7 +226,6 @@
             }
         }
 
-        /* === ВСПЛЫВАЮЩИЙ ТЕКСТ "+N" === */
         .float-text {
             position: absolute;
             top: 50%;
@@ -346,9 +343,12 @@
             box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
         }
 
+        /* === КОНТЕНТ ВКЛАДОК — теперь все одинаковой ширины === */
         .tab-content {
             display: none;
             animation: fade 0.3s ease;
+            width: 100%;
+            padding: 0;
         }
 
         .tab-content.active {
@@ -371,6 +371,7 @@
             margin-bottom: 8px;
             border: 1px solid rgba(155, 89, 182, 0.08);
             transition: all 0.3s;
+            width: 100%;
         }
 
         .shop-item:active {
@@ -426,6 +427,7 @@
             margin-bottom: 6px;
             border-left: 4px solid var(--purple);
             transition: all 0.3s;
+            width: 100%;
         }
 
         .achievement.locked {
@@ -459,6 +461,7 @@
             padding: 16px;
             border: 1px solid rgba(155, 89, 182, 0.1);
             animation: fadeIn 0.5s ease;
+            width: 100%;
         }
 
         .referral-link {
@@ -820,7 +823,6 @@
                 dailyBonusBtn.textContent = '🎁 Бонус';
             }
 
-            // Скин
             coinEmoji.textContent = state.skin === 'gold' ? '🌟' : '🪙';
 
             renderAchievements();
@@ -973,7 +975,6 @@
 
         // === КЛИК ===
         function handleClick(e) {
-            // Эффект ряби
             const rect = e.currentTarget.getBoundingClientRect();
             const x = (e.clientX || e.touches?.[0]?.clientX || rect.left + rect.width/2) - rect.left;
             const y = (e.clientY || e.touches?.[0]?.clientY || rect.top + rect.height/2) - rect.top;
@@ -985,16 +986,13 @@
             e.currentTarget.appendChild(ripple);
             setTimeout(() => ripple.remove(), 600);
 
-            // Начисляем монеты
             state.balance += state.clickPower;
             state.totalClicks += 1;
             state.totalEarned += state.clickPower;
 
-            // Визуальный фидбек на балансе – меняем цвет на золотой на мгновение
             balanceContainer.classList.add('pop');
             setTimeout(() => balanceContainer.classList.remove('pop'), 150);
 
-            // Всплывающий текст "+N"
             const floatText = document.createElement('div');
             floatText.className = 'float-text';
             floatText.textContent = `+${state.clickPower}`;
@@ -1022,7 +1020,6 @@
             await loadData();
 
             clickBtn.addEventListener('click', handleClick);
-            // Автоклик при зажатии
             let holdInterval;
             const startHold = (e) => {
                 holdInterval = setInterval(handleClick, 100);
