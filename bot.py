@@ -16,14 +16,6 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN не установлен!")
     exit(1)
 
-# --- ЗАВЕРШАЕМ СТАРЫЕ СЕССИИ (ЭТО РЕШАЕТ КОНФЛИКТ) ---
-try:
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/logout"
-    response = requests.get(url)
-    logger.info(f"Logout: {response.json()}")
-except Exception as e:
-    logger.error(f"Logout error: {e}")
-
 # --- ИМПОРТЫ TELEGRAM ---
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -67,10 +59,23 @@ class SupabaseTable:
         self.filter_value = value
         return self
     
+    def order(self, column, desc=False):
+        self.order_column = column
+        self.order_desc = desc
+        return self
+    
+    def limit(self, limit):
+        self.limit_value = limit
+        return self
+    
     def execute(self):
         params = {'select': self.columns}
         if hasattr(self, 'filter_column'):
             params[self.filter_column] = f'eq.{self.filter_value}'
+        if hasattr(self, 'order_column'):
+            params['order'] = f'{self.order_column}.desc' if self.order_desc else f'{self.order_column}.asc'
+        if hasattr(self, 'limit_value'):
+            params['limit'] = self.limit_value
         
         url = f"{self.url}/rest/v1/{self.table_name}"
         response = requests.get(url, headers=self.headers, params=params)
@@ -78,7 +83,7 @@ class SupabaseTable:
         if response.status_code == 200:
             return response.json()
         else:
-            logger.error(f"Supabase select error: {response.status_code} - {response.text}")
+            logger.error(f"Supabase select error: {response.status_code}")
             return []
     
     def insert(self, data):
@@ -87,7 +92,7 @@ class SupabaseTable:
         if response.status_code in [200, 201]:
             return response.json()
         else:
-            logger.error(f"Supabase insert error: {response.status_code} - {response.text}")
+            logger.error(f"Supabase insert error: {response.status_code}")
             return None
     
     def update(self, data):
@@ -106,7 +111,7 @@ class SupabaseTable:
         if response.status_code in [200, 204]:
             return True
         else:
-            logger.error(f"Supabase update error: {response.status_code} - {response.text}")
+            logger.error(f"Supabase update error: {response.status_code}")
             return False
 
 supabase = SupabaseClient(SUPABASE_URL, SUPABASE_KEY)
@@ -287,10 +292,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- MAIN ---
 def main():
     try:
-        # Еще раз принудительно завершаем сессию перед запуском
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/logout"
-        requests.get(url)
-        
         # Создаем приложение
         app = Application.builder().token(BOT_TOKEN).build()
         
@@ -303,14 +304,12 @@ def main():
         # Запускаем с очисткой старых апдейтов
         app.run_polling(
             allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,
-            close_loop=False
+            drop_pending_updates=True
         )
         
     except Exception as e:
         logger.error(f"Ошибка при запуске бота: {e}")
-        import time
-        time.sleep(5)  # Ждем перед перезапуском
+        raise
 
 if __name__ == '__main__':
     main()
