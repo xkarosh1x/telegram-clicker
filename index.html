@@ -350,16 +350,22 @@
             display: none;
             width: 100%;
             padding: 0;
+            opacity: 0;
+            transform: scale(0.9) translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
         .tab-content.active {
             display: block;
-            animation: contentFade 0.3s ease;
+            opacity: 1;
+            transform: scale(1) translateY(0);
         }
 
-        @keyframes contentFade {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+        .tab-content.closing {
+            display: block;
+            opacity: 0;
+            transform: scale(0.9) translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
         /* === АНИМАЦИЯ ДЛЯ ЭЛЕМЕНТОВ === */
@@ -1059,29 +1065,62 @@
             });
         }
 
-        // === ВКЛАДКИ (с поддержкой toggle) ===
+        // === ФУНКЦИЯ ЗАКРЫТИЯ ВКЛАДКИ С АНИМАЦИЕЙ ===
+        function closeTabWithAnimation(tabId) {
+            const tabContent = document.getElementById(`tab-${tabId}`);
+            if (!tabContent) return;
+
+            // Если контент уже закрыт или закрывается, ничего не делаем
+            if (!tabContent.classList.contains('active')) return;
+
+            // Убираем активность с вкладки
+            const tabBtn = document.querySelector(`.tab[data-tab="${tabId}"]`);
+            if (tabBtn) tabBtn.classList.remove('active');
+
+            // Добавляем класс closing для анимации закрытия
+            tabContent.classList.remove('active');
+            tabContent.classList.add('closing');
+
+            // После завершения анимации (300ms) скрываем полностью
+            setTimeout(() => {
+                tabContent.classList.remove('closing');
+                tabContent.style.display = 'none';
+            }, 300);
+        }
+
+        // === ВКЛАДКИ (с поддержкой toggle и анимацией закрытия) ===
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const tabId = tab.dataset.tab;
                 const isActive = tab.classList.contains('active');
+                const tabContent = document.getElementById(`tab-${tabId}`);
 
-                // Если вкладка уже активна — закрываем её (убираем активность)
+                // Если вкладка активна — закрываем с анимацией
                 if (isActive) {
-                    // Снимаем активность со всех вкладок и контента
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-                    // Ничего не показываем
+                    closeTabWithAnimation(tabId);
                     return;
                 }
 
-                // Иначе активируем выбранную вкладку
+                // Иначе: закрываем все остальные вкладки (с анимацией)
+                document.querySelectorAll('.tab-content.active').forEach(tc => {
+                    const activeTabId = tc.id.replace('tab-', '');
+                    closeTabWithAnimation(activeTabId);
+                });
+
+                // Убираем активность со всех вкладок
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+
+                // Активируем выбранную вкладку
                 tab.classList.add('active');
-                const targetContent = document.getElementById(`tab-${tabId}`);
-                targetContent.classList.add('active');
-                // Запускаем анимацию для элементов (если это shop или achievements)
-                animateTab(tabId);
+
+                // Показываем контент с анимацией появления
+                tabContent.style.display = 'block';
+                // Небольшая задержка, чтобы display успел примениться
+                requestAnimationFrame(() => {
+                    tabContent.classList.add('active');
+                    // Запускаем анимацию для элементов (если это shop или achievements)
+                    animateTab(tabId);
+                });
             });
         });
 
