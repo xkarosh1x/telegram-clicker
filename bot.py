@@ -1,20 +1,34 @@
 import os
-import json
 import logging
-from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 import requests
+from datetime import datetime
 
-logging.basicConfig(level=logging.INFO)
+# --- НАСТРОЙКА ЛОГИРОВАНИЯ ---
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# --- Config ---
+# --- ТОКЕН ---
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 if not BOT_TOKEN:
-    logger.error("BOT_TOKEN not set!")
+    logger.error("BOT_TOKEN не установлен!")
     exit(1)
 
+# --- ЗАВЕРШАЕМ СТАРЫЕ СЕССИИ (ЭТО РЕШАЕТ КОНФЛИКТ) ---
+try:
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/logout"
+    response = requests.get(url)
+    logger.info(f"Logout: {response.json()}")
+except Exception as e:
+    logger.error(f"Logout error: {e}")
+
+# --- ИМПОРТЫ TELEGRAM ---
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+
+# --- КОНФИГ ---
 WEBAPP_URL = os.environ.get('WEBAPP_URL', 'https://твой-username.github.io/telegram-clicker')
 
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
@@ -24,7 +38,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("Supabase credentials not set!")
     exit(1)
 
-# --- Supabase REST Client ---
+# --- SUPABASE CLIENT ---
 class SupabaseClient:
     def __init__(self, url, key):
         self.url = url.rstrip('/')
@@ -53,23 +67,10 @@ class SupabaseTable:
         self.filter_value = value
         return self
     
-    def order(self, column, desc=False):
-        self.order_column = column
-        self.order_desc = desc
-        return self
-    
-    def limit(self, limit):
-        self.limit_value = limit
-        return self
-    
     def execute(self):
         params = {'select': self.columns}
         if hasattr(self, 'filter_column'):
             params[self.filter_column] = f'eq.{self.filter_value}'
-        if hasattr(self, 'order_column'):
-            params['order'] = f'{self.order_column}.desc' if self.order_desc else f'{self.order_column}.asc'
-        if hasattr(self, 'limit_value'):
-            params['limit'] = self.limit_value
         
         url = f"{self.url}/rest/v1/{self.table_name}"
         response = requests.get(url, headers=self.headers, params=params)
@@ -110,7 +111,7 @@ class SupabaseTable:
 
 supabase = SupabaseClient(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Database helpers ---
+# --- DATABASE HELPERS ---
 def get_or_create_user(user_id: str):
     try:
         result = supabase.table('users').select('*').eq('user_id', user_id).execute()
@@ -143,52 +144,32 @@ def update_user(user_id: str, data: dict):
         logger.error(f"Update error: {e}")
         return False
 
-def get_top_users(limit=10):
-    try:
-        result = supabase.table('users').select('user_id, balance, total_clicks').order('balance', desc=True).limit(limit).execute()
-        return result if isinstance(result, list) else []
-    except Exception as e:
-        logger.error(f"Top error: {e}")
-        return []
-
-# --- Bot handlers ---
+# --- BOT HANDLERS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     
-    # Проверяем реферальный код
+    # Реферальная система
     if context.args and context.args[0].startswith('ref_'):
-        ref_code = context.args[0][4:]
         try:
             import base64
+            ref_code = context.args[0][4:]
             decoded = base64.b64decode(ref_code + '==' * (4 - len(ref_code) % 4)).decode()
             referrer_id = decoded.split(':')[0]
             
             if referrer_id != user_id:
                 referrer = get_or_create_user(referrer_id)
                 if referrer:
-                    new_balance = referrer.get('balance', 0) + 50
-                    new_ref_count = referrer.get('ref_count', 0) + 1
                     update_user(referrer_id, {
-                        'balance': new_balance,
-                        'ref_count': new_ref_count
+                        'balance': referrer.get('balance', 0) + 50,
+                        'ref_count': referrer.get('ref_count', 0) + 1
                     })
-                    await update.message.reply_text(
-                        "🎉 Вы пригласили нового друга и получили 50 🪙!"
-                    )
-                
-                user = get_or_create_user(user_id)
-                if user:
-                    new_balance = user.get('balance', 0) + 25
-                    update_user(user_id, {
-                        'balance': new_balance,
-                        'referred_by': referrer_id
-                    })
+                    await update.message.reply_text("🎉 Вы пригласили друга и получили 50 🪙!")
         except Exception as e:
             logger.error(f"Referral error: {e}")
     
     user = get_or_create_user(user_id)
     if not user:
-        await update.message.reply_text("❌ Ошибка базы данных. Попробуйте позже.")
+        await update.message.reply_text("❌ Ошибка базы данных.")
         return
     
     keyboard = [
@@ -202,18 +183,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("👥 Рефералы", callback_data='ref_info')
         ]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
     
-    # Получаем username для приветствия
     username = update.effective_user.first_name or "Игрок"
-    
     await update.message.reply_text(
         f"🪙 *Привет, {username}!*\n\n"
         f"💰 Баланс: `{user.get('balance', 0)}`\n"
         f"💪 Сила клика: `{user.get('click_power', 1)}`\n"
-        f"👥 Приглашено друзей: `{user.get('ref_count', 0)}`\n\n"
-        "👇 Нажми на кнопку, чтобы начать играть!",
-        reply_markup=reply_markup,
+        f"👥 Рефералов: `{user.get('ref_count', 0)}`\n\n"
+        "👇 Нажми на кнопку, чтобы начать!",
+        reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='Markdown'
     )
 
@@ -225,7 +203,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = get_or_create_user(user_id)
     
     if not user:
-        await query.edit_message_text("❌ Ошибка. Попробуйте позже.")
+        await query.edit_message_text("❌ Ошибка.")
         return
     
     if query.data == 'stats':
@@ -235,29 +213,32 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💪 Сила клика: `{user.get('click_power', 1)}`\n"
             f"🤖 Автокликер: `{user.get('auto_power', 0)}/сек`\n"
             f"👆 Всего кликов: `{user.get('total_clicks', 0)}`\n"
-            f"👥 Рефералов: `{user.get('ref_count', 0)}`\n"
-            f"🏅 Уровень: `{calculate_level(user.get('total_earned', 0))}`"
+            f"👥 Рефералов: `{user.get('ref_count', 0)}`"
         )
         await query.edit_message_text(text, parse_mode='Markdown')
     
     elif query.data == 'top':
-        top_users = get_top_users(10)
-        if top_users:
-            text = "🏆 *Топ-10 игроков*\n\n"
-            for i, u in enumerate(top_users, 1):
-                name = f"Игрок {u['user_id'][:6]}"
-                text += f"{i}. {name} — 🪙 {u['balance']} (👆{u['total_clicks']})\n"
-            await query.edit_message_text(text, parse_mode='Markdown')
-        else:
-            await query.edit_message_text("Пока нет игроков")
+        try:
+            result = supabase.table('users').select('user_id, balance').order('balance', desc=True).limit(10).execute()
+            if result:
+                text = "🏆 *Топ-10 игроков*\n\n"
+                for i, u in enumerate(result, 1):
+                    name = f"Игрок {u['user_id'][:6]}"
+                    text += f"{i}. {name} — 🪙 {u['balance']}\n"
+                await query.edit_message_text(text, parse_mode='Markdown')
+            else:
+                await query.edit_message_text("Пока нет игроков")
+        except Exception as e:
+            logger.error(f"Top error: {e}")
+            await query.edit_message_text("❌ Ошибка загрузки топа")
     
     elif query.data == 'daily_bonus':
         today = datetime.utcnow().date().isoformat()
         if user.get('last_daily_bonus') == today:
-            await query.edit_message_text("❌ Ты уже получил бонус сегодня!\nПриходи завтра 🎁")
+            await query.edit_message_text("❌ Ты уже получил бонус сегодня! Завтра приходи 🎁")
             return
         
-        bonus = 100 + calculate_level(user.get('total_earned', 0)) * 10
+        bonus = 100
         new_balance = user.get('balance', 0) + bonus
         new_earned = user.get('total_earned', 0) + bonus
         
@@ -268,22 +249,23 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         })
         
         await query.edit_message_text(
-            f"🎁 *Ежедневный бонус получен!*\n\n"
+            f"🎁 *Ежедневный бонус!*\n\n"
             f"💰 +{bonus} 🪙\n"
-            f"📊 Новый баланс: `{new_balance}`\n\n"
-            "🔄 Возвращайся завтра за новым бонусом!",
+            f"📊 Баланс: `{new_balance}`",
             parse_mode='Markdown'
         )
     
     elif query.data == 'ref_info':
-        ref_code = generate_ref_code(user_id)
+        import base64
+        code = base64.b64encode(f"{user_id}:{datetime.utcnow().timestamp()}".encode()).decode()[:16]
+        ref_code = f"ref_{code}"
+        link = f"https://t.me/{context.bot.username}?start={ref_code}"
+        
         text = (
             "👥 *Реферальная система*\n\n"
-            "Приглашай друзей и получай бонусы!\n"
-            f"👤 За каждого друга: +50 🪙 тебе и +25 🪙 другу\n\n"
-            f"📋 Твоя ссылка:\n"
-            f"`https://t.me/{context.bot.username}?start={ref_code}`\n\n"
-            f"👥 Приглашено: `{user.get('ref_count', 0)}`"
+            f"👤 За каждого друга: +50 🪙\n"
+            f"👥 Приглашено: `{user.get('ref_count', 0)}`\n\n"
+            f"📋 Твоя ссылка:\n`{link}`"
         )
         keyboard = [[InlineKeyboardButton("📋 Копировать ссылку", callback_data='copy_ref')]]
         await query.edit_message_text(
@@ -293,40 +275,42 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     elif query.data == 'copy_ref':
-        ref_code = generate_ref_code(user_id)
+        import base64
+        code = base64.b64encode(f"{user_id}:{datetime.utcnow().timestamp()}".encode()).decode()[:16]
+        ref_code = f"ref_{code}"
         link = f"https://t.me/{context.bot.username}?start={ref_code}"
         await query.edit_message_text(
-            f"📋 *Твоя реферальная ссылка:*\n\n"
-            f"`{link}`\n\n"
-            "👆 Скопируй и отправь друзьям!",
+            f"📋 *Твоя реферальная ссылка:*\n\n`{link}`\n\n👆 Скопируй и отправь друзьям!",
             parse_mode='Markdown'
         )
 
-def calculate_level(total_earned):
-    level = 1
-    while total_earned >= get_level_exp(level):
-        level += 1
-    return level
-
-def get_level_exp(level):
-    return int(100 * (1.5 ** (level - 1)))
-
-def generate_ref_code(user_id):
-    import base64
-    code = base64.b64encode(f"{user_id}:{datetime.utcnow().timestamp()}".encode()).decode()[:16]
-    return f"ref_{code}"
-
+# --- MAIN ---
 def main():
-    # Создаем приложение с таймаутом
-    app = Application.builder().token(BOT_TOKEN).connect_timeout(30).read_timeout(30).build()
-    
-    # Добавляем обработчики
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(callback_handler))
-    
-    # Запускаем с clean_up=True
-    logger.info("🤖 Бот запущен!")
-    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    try:
+        # Еще раз принудительно завершаем сессию перед запуском
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/logout"
+        requests.get(url)
+        
+        # Создаем приложение
+        app = Application.builder().token(BOT_TOKEN).build()
+        
+        # Добавляем обработчики
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CallbackQueryHandler(callback_handler))
+        
+        logger.info("🤖 Бот успешно запущен!")
+        
+        # Запускаем с очисткой старых апдейтов
+        app.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+            close_loop=False
+        )
+        
+    except Exception as e:
+        logger.error(f"Ошибка при запуске бота: {e}")
+        import time
+        time.sleep(5)  # Ждем перед перезапуском
 
 if __name__ == '__main__':
     main()
