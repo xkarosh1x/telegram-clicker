@@ -1,28 +1,21 @@
 import os
 import logging
 import requests
-from datetime import datetime
+import time
 import threading
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # --- НАСТРОЙКА ЛОГИРОВАНИЯ ---
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- ТОКЕН ---
+# --- ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 if not BOT_TOKEN:
     logger.error("BOT_TOKEN не установлен!")
     exit(1)
 
-# --- ИМПОРТЫ TELEGRAM ---
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-
-# --- КОНФИГ ---
 WEBAPP_URL = os.environ.get('WEBAPP_URL', 'https://xkarosh1x.github.io/telegram-clicker')
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_ANON_KEY')
@@ -31,7 +24,13 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("Supabase credentials not set!")
     exit(1)
 
-# --- SUPABASE CLIENT ---
+# --- ИМПОРТЫ TELEGRAM (после проверки токена) ---
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+
+# ===================================================================
+# 1. SUPABASE CLIENT (простой REST-клиент)
+# ===================================================================
 class SupabaseClient:
     def __init__(self, url, key):
         self.url = url.rstrip('/')
@@ -80,11 +79,10 @@ class SupabaseTable:
         
         url = f"{self.url}/rest/v1/{self.table_name}"
         response = requests.get(url, headers=self.headers, params=params)
-        
         if response.status_code == 200:
             return response.json()
         else:
-            logger.error(f"Supabase select error: {response.status_code}")
+            logger.error(f"Supabase select error: {response.status_code} - {response.text}")
             return []
     
     def insert(self, data):
@@ -93,7 +91,7 @@ class SupabaseTable:
         if response.status_code in [200, 201]:
             return response.json()
         else:
-            logger.error(f"Supabase insert error: {response.status_code}")
+            logger.error(f"Supabase insert error: {response.status_code} - {response.text}")
             return None
     
     def update(self, data):
@@ -112,12 +110,14 @@ class SupabaseTable:
         if response.status_code in [200, 204]:
             return True
         else:
-            logger.error(f"Supabase update error: {response.status_code}")
+            logger.error(f"Supabase update error: {response.status_code} - {response.text}")
             return False
 
 supabase = SupabaseClient(SUPABASE_URL, SUPABASE_KEY)
 
-# --- DATABASE HELPERS ---
+# ===================================================================
+# 2. ФУНКЦИИ РАБОТЫ С БАЗОЙ ДАННЫХ
+# ===================================================================
 def get_or_create_user(user_id: str):
     try:
         result = supabase.table('users').select('*').eq('user_id', user_id).execute()
@@ -150,8 +150,11 @@ def update_user(user_id: str, data: dict):
         logger.error(f"Update error: {e}")
         return False
 
-# --- BOT HANDLERS ---
+# ===================================================================
+# 3. ОБРАБОТЧИКИ КОМАНД
+# ===================================================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"Получена команда /start от {update.effective_user.id}")
     user_id = str(update.effective_user.id)
     
     # Реферальная система
@@ -161,7 +164,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ref_code = context.args[0][4:]
             decoded = base64.b64decode(ref_code + '==' * (4 - len(ref_code) % 4)).decode()
             referrer_id = decoded.split(':')[0]
-            
             if referrer_id != user_id:
                 referrer = get_or_create_user(referrer_id)
                 if referrer:
@@ -175,7 +177,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user = get_or_create_user(user_id)
     if not user:
-        await update.message.reply_text("❌ Ошибка базы данных, повторите попытку!")
+        await update.message.reply_text("❌ Ошибка базы данных.")
         return
     
     keyboard = [
@@ -204,10 +206,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
     user_id = str(query.from_user.id)
     user = get_or_create_user(user_id)
-    
     if not user:
         await query.edit_message_text("❌ Ошибка.")
         return
@@ -243,17 +243,14 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user.get('last_daily_bonus') == today:
             await query.edit_message_text("❌ Ты уже получил бонус сегодня! Завтра приходи 🎁")
             return
-        
         bonus = 100
         new_balance = user.get('balance', 0) + bonus
         new_earned = user.get('total_earned', 0) + bonus
-        
         update_user(user_id, {
             'balance': new_balance,
             'total_earned': new_earned,
             'last_daily_bonus': today
         })
-        
         await query.edit_message_text(
             f"🎁 *Ежедневный бонус!*\n\n"
             f"💰 +{bonus} 🪙\n"
@@ -266,7 +263,6 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         code = base64.b64encode(f"{user_id}:{datetime.utcnow().timestamp()}".encode()).decode()[:16]
         ref_code = f"ref_{code}"
         link = f"https://t.me/{context.bot.username}?start={ref_code}"
-        
         text = (
             "👥 *Реферальная система*\n\n"
             f"👤 За каждого друга: +50 🪙\n"
@@ -290,15 +286,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
 
-# --- HTTP-сервер для health check (чтобы Render видел открытый порт) ---
+# ===================================================================
+# 4. HEALTH-СЕРВЕР ДЛЯ RENDER (чтобы видел порт)
+# ===================================================================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'OK')
-
     def log_message(self, format, *args):
-        # Отключаем логирование запросов к health-серверу, чтобы не засорять вывод
         pass
 
 def run_health_server():
@@ -307,30 +303,61 @@ def run_health_server():
     logger.info(f"Health server running on port {port}")
     server.serve_forever()
 
-# --- MAIN ---
-def main():
+# ===================================================================
+# 5. ФУНКЦИЯ ОЧИСТКИ ВЕБХУКА И СБРОСА ОБНОВЛЕНИЙ
+# ===================================================================
+def clear_webhook_and_updates():
     try:
-        # Запускаем health-сервер в фоновом потоке
-        thread = threading.Thread(target=run_health_server, daemon=True)
-        thread.start()
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
+        resp = requests.get(url)
+        logger.info(f"deleteWebhook: {resp.json()}")
+    except Exception as e:
+        logger.error(f"deleteWebhook error: {e}")
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+        resp = requests.get(url, params={'offset': -1, 'timeout': 1})
+        logger.info(f"getUpdates clear: {resp.json()}")
+    except Exception as e:
+        logger.error(f"getUpdates error: {e}")
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
+        resp = requests.get(url, params={'url': ''})
+        logger.info(f"setWebhook empty: {resp.json()}")
+    except Exception as e:
+        logger.error(f"setWebhook error: {e}")
 
-        # Создаём приложение Telegram
-        app = Application.builder().token(BOT_TOKEN).build()
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CallbackQueryHandler(callback_handler))
-        
-        logger.info("🤖 Бот успешно запущен!")
-        
-        # Запускаем polling
+# ===================================================================
+# 6. MAIN С ЗАЩИТОЙ ОТ КОНФЛИКТОВ
+# ===================================================================
+def main():
+    # Очистка перед запуском
+    clear_webhook_and_updates()
+    
+    # Запускаем health-сервер в фоновом потоке
+    thread = threading.Thread(target=run_health_server, daemon=True)
+    thread.start()
+    
+    # Создаём приложение
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(callback_handler))
+    
+    logger.info("Бот запущен, начинаем polling...")
+    
+    # Запускаем polling с защитой от конфликтов
+    try:
         app.run_polling(
             allowed_updates=Update.ALL_TYPES,
             drop_pending_updates=True,
-            timeout=30
+            timeout=30,
+            poll_interval=0.5
         )
-        
     except Exception as e:
-        logger.error(f"Ошибка при запуске бота: {e}")
-        raise
+        logger.error(f"Polling error: {e}")
+        if "Conflict" in str(e):
+            logger.info("Обнаружен конфликт, перезапуск через 5 секунд...")
+            time.sleep(5)
+            main()  # рекурсивный перезапуск
 
 if __name__ == '__main__':
     main()
