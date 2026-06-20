@@ -317,13 +317,16 @@ def generate_ref_code(user_id):
     return f"ref_{code}"
 
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    # Создаем приложение с таймаутом
+    app = Application.builder().token(BOT_TOKEN).connect_timeout(30).read_timeout(30).build()
     
+    # Добавляем обработчики
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback_handler))
     
+    # Запускаем с clean_up=True
     logger.info("🤖 Бот запущен!")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
