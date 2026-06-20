@@ -1,5 +1,4 @@
 import os
-import json
 from datetime import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -70,5 +69,6 @@ def handle_user():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
-# Vercel требует, чтобы приложение было доступно как 'app'
-# Если используешь Flask, то просто app — подходит.
+# Для локального запуска (не используется на Vercel)
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
