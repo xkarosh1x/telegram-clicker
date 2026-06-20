@@ -20,7 +20,6 @@
             --purple-dark: #7d3c98;
             --purple-light: #a29bfe;
             --neon-pink: #fd79a8;
-            --neon-blue: #74b9ff;
             --gold: #fdcb6e;
             --text: #f0e6ff;
             --text-muted: #b8a5d6;
@@ -326,6 +325,7 @@
 
         .tab {
             flex: 1;
+            min-width: 0; /* важно для одинаковой ширины */
             padding: 10px 0;
             border: none;
             background: transparent;
@@ -335,6 +335,8 @@
             font-size: 14px;
             cursor: pointer;
             transition: all 0.3s;
+            text-align: center;
+            white-space: nowrap;
         }
 
         .tab.active {
@@ -343,7 +345,7 @@
             box-shadow: 0 4px 15px rgba(155, 89, 182, 0.3);
         }
 
-        /* === КОНТЕНТ ВКЛАДОК — теперь все одинаковой ширины === */
+        /* === КОНТЕНТ ВКЛАДОК — гарантируем одинаковую ширину === */
         .tab-content {
             display: none;
             animation: fade 0.3s ease;
@@ -353,6 +355,12 @@
 
         .tab-content.active {
             display: block;
+        }
+
+        /* Все элементы внутри контента — 100% ширины */
+        .tab-content > * {
+            width: 100%;
+            box-sizing: border-box;
         }
 
         @keyframes fade {
@@ -372,6 +380,7 @@
             border: 1px solid rgba(155, 89, 182, 0.08);
             transition: all 0.3s;
             width: 100%;
+            box-sizing: border-box;
         }
 
         .shop-item:active {
@@ -381,6 +390,7 @@
 
         .shop-item-info {
             flex: 1;
+            min-width: 0;
         }
 
         .shop-item-title {
@@ -405,6 +415,7 @@
             cursor: pointer;
             transition: all 0.3s;
             box-shadow: 0 2px 10px rgba(155, 89, 182, 0.2);
+            flex-shrink: 0;
         }
 
         .shop-item-price:active {
@@ -428,6 +439,7 @@
             border-left: 4px solid var(--purple);
             transition: all 0.3s;
             width: 100%;
+            box-sizing: border-box;
         }
 
         .achievement.locked {
@@ -437,10 +449,12 @@
 
         .achievement-icon {
             font-size: 28px;
+            flex-shrink: 0;
         }
 
         .achievement-info {
             flex: 1;
+            min-width: 0;
         }
 
         .achievement-name {
@@ -462,6 +476,7 @@
             border: 1px solid rgba(155, 89, 182, 0.1);
             animation: fadeIn 0.5s ease;
             width: 100%;
+            box-sizing: border-box;
         }
 
         .referral-link {
@@ -475,6 +490,8 @@
             color: var(--text-muted);
             border: 1px dashed rgba(155, 89, 182, 0.2);
             transition: background 0.3s;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .referral-link:active {
