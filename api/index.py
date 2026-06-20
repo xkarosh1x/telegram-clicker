@@ -1,12 +1,9 @@
 import os
+import json
 from datetime import datetime
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 from supabase import create_client, Client
 
-app = Flask(__name__)
-CORS(app)
-
+# --- Supabase ---
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_ANON_KEY')
 
@@ -15,18 +12,27 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-@app.route('/api', methods=['GET', 'POST'])
-def handle_user():
-    if request.method == 'GET':
+def handler(request):
+    """Vercel Serverless Function handler"""
+    method = request.method
+
+    if method == 'GET':
         user_id = request.args.get('userId')
         if not user_id:
-            return jsonify({'error': 'userId required'}), 400
-
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'userId required'})
+            }
         try:
             response = supabase.table('users').select('*').eq('user_id', user_id).execute()
             if response.data:
-                return jsonify(response.data[0])
+                return {
+                    'statusCode': 200,
+                    'body': json.dumps(response.data[0]),
+                    'headers': {'Content-Type': 'application/json'}
+                }
             else:
+                # Создаём нового пользователя
                 new_user = {
                     'user_id': user_id,
                     'balance': 0,
@@ -41,34 +47,57 @@ def handle_user():
                     'created_at': datetime.utcnow().isoformat()
                 }
                 supabase.table('users').insert(new_user).execute()
-                return jsonify(new_user)
+                return {
+                    'statusCode': 200,
+                    'body': json.dumps(new_user),
+                    'headers': {'Content-Type': 'application/json'}
+                }
         except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'error': str(e)})
+            }
 
-    elif request.method == 'POST':
-        data = request.json
-        user_id = data.get('userId')
+    elif method == 'POST':
+        body = request.get_json()
+        if not body:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Invalid JSON'})
+            }
+        user_id = body.get('userId')
         if not user_id:
-            return jsonify({'error': 'userId required'}), 400
-
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'userId required'})
+            }
         try:
             update_data = {
-                'balance': data.get('balance', 0),
-                'click_power': data.get('clickPower', 1),
-                'total_clicks': data.get('totalClicks', 0),
-                'auto_power': data.get('autoPower', 0),
-                'ref_count': data.get('refCount', 0),
-                'total_earned': data.get('totalEarned', 0),
-                'skin': data.get('skin', 'default'),
-                'daily_bonus_claimed': data.get('dailyBonusClaimed', False),
-                'last_daily_bonus': data.get('lastDailyBonus', ''),
+                'balance': body.get('balance', 0),
+                'click_power': body.get('clickPower', 1),
+                'total_clicks': body.get('totalClicks', 0),
+                'auto_power': body.get('autoPower', 0),
+                'ref_count': body.get('refCount', 0),
+                'total_earned': body.get('totalEarned', 0),
+                'skin': body.get('skin', 'default'),
+                'daily_bonus_claimed': body.get('dailyBonusClaimed', False),
+                'last_daily_bonus': body.get('lastDailyBonus', ''),
                 'updated_at': datetime.utcnow().isoformat()
             }
             supabase.table('users').update(update_data).eq('user_id', user_id).execute()
-            return jsonify({'success': True})
+            return {
+                'statusCode': 200,
+                'body': json.dumps({'success': True}),
+                'headers': {'Content-Type': 'application/json'}
+            }
         except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            return {
+                'statusCode': 500,
+                'body': json.dumps({'error': str(e)})
+            }
 
-# Для локального запуска (не используется на Vercel)
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    else:
+        return {
+            'statusCode': 405,
+            'body': json.dumps({'error': 'Method not allowed'})
+        }
