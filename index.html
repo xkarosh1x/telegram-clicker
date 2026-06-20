@@ -132,7 +132,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            transition: transform 0.2s;
+            transition: all 0.2s;
         }
         .balance .coin-icon {
             font-size: 40px;
@@ -144,6 +144,14 @@
         @keyframes coinFloat {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-4px); }
+        }
+
+        /* Визуальный фидбек при клике – цвет меняется */
+        .balance.pop {
+            background: linear-gradient(135deg, #ffd700, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: 0.15s;
         }
 
         .click-btn {
@@ -218,6 +226,26 @@
                 transform: scale(2.5);
                 opacity: 0;
             }
+        }
+
+        /* === ВСПЛЫВАЮЩИЙ ТЕКСТ "+N" === */
+        .float-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(253, 121, 168, 0.8);
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            z-index: 10;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -120%) scale(1.3); }
         }
 
         /* === СТАТИСТИКА === */
@@ -688,6 +716,7 @@
         const loading = document.getElementById('loading');
         const game = document.getElementById('game');
         const balanceValue = document.getElementById('balanceValue');
+        const balanceContainer = document.getElementById('balance');
         const clickPowerEl = document.getElementById('clickPower');
         const totalClicksEl = document.getElementById('totalClicks');
         const autoPowerEl = document.getElementById('autoPower');
@@ -956,13 +985,22 @@
             e.currentTarget.appendChild(ripple);
             setTimeout(() => ripple.remove(), 600);
 
+            // Начисляем монеты
             state.balance += state.clickPower;
             state.totalClicks += 1;
             state.totalEarned += state.clickPower;
 
-            // Визуальный фидбек на балансе
-            balanceValue.style.transform = 'scale(1.1)';
-            setTimeout(() => balanceValue.style.transform = 'scale(1)', 150);
+            // Визуальный фидбек на балансе – меняем цвет на золотой на мгновение
+            balanceContainer.classList.add('pop');
+            setTimeout(() => balanceContainer.classList.remove('pop'), 150);
+
+            // Всплывающий текст "+N"
+            const floatText = document.createElement('div');
+            floatText.className = 'float-text';
+            floatText.textContent = `+${state.clickPower}`;
+            const coinSection = document.querySelector('.coin-section');
+            coinSection.appendChild(floatText);
+            setTimeout(() => floatText.remove(), 800);
 
             updateUI();
             saveData();
