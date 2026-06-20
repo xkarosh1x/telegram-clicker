@@ -16,13 +16,37 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN не установлен!")
     exit(1)
 
-# --- ИМПОРТЫ TELEGRAM ---
+# --- ПРИНУДИТЕЛЬНАЯ ОЧИСТКА ВЕБХУКА И СТАРЫХ ОБНОВЛЕНИЙ ---
+def clear_webhook_and_updates():
+    try:
+        # 1. Удаляем вебхук (если был установлен)
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
+        response = requests.get(url)
+        logger.info(f"deleteWebhook: {response.json()}")
+
+        # 2. Получаем все обновления с offset=-1, чтобы очистить очередь
+        #    Это сбрасывает все накопленные обновления
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+        response = requests.get(url, params={'offset': -1, 'timeout': 1})
+        logger.info(f"getUpdates clear: {response.json()}")
+
+        # 3. Дополнительно: сбрасываем вебхук с пустым URL (гарантия)
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
+        response = requests.get(url, params={'url': ''})
+        logger.info(f"setWebhook empty: {response.json()}")
+
+    except Exception as e:
+        logger.error(f"Ошибка очистки: {e}")
+
+# --- ВЫЗЫВАЕМ ОЧИСТКУ ПЕРЕД ИМПОРТАМИ TELEGRAM (чтобы не мешало) ---
+clear_webhook_and_updates()
+
+# --- ТЕПЕРЬ ИМПОРТИРУЕМ TELEGRAM ---
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # --- КОНФИГ ---
 WEBAPP_URL = os.environ.get('WEBAPP_URL', 'https://твой-username.github.io/telegram-clicker')
-
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_ANON_KEY')
 
@@ -30,7 +54,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("Supabase credentials not set!")
     exit(1)
 
-# --- SUPABASE CLIENT ---
+# --- SUPABASE CLIENT (без изменений) ---
 class SupabaseClient:
     def __init__(self, url, key):
         self.url = url.rstrip('/')
@@ -292,6 +316,9 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- MAIN ---
 def main():
     try:
+        # Еще раз очищаем вебхук перед запуском (на всякий случай)
+        clear_webhook_and_updates()
+
         # Создаем приложение
         app = Application.builder().token(BOT_TOKEN).build()
         
@@ -301,10 +328,11 @@ def main():
         
         logger.info("🤖 Бот успешно запущен!")
         
-        # Запускаем с очисткой старых апдейтов
+        # Запускаем polling с очисткой старых апдейтов
         app.run_polling(
             allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True
+            drop_pending_updates=True,
+            timeout=30
         )
         
     except Exception as e:
