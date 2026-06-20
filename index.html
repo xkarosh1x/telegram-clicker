@@ -6,7 +6,7 @@
     <title>Кликер</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* === ОБЩИЕ СТИЛИ (без изменений, как в предыдущем коде) === */
+        /* === СТИЛИ (без изменений, те же, что в предыдущем ответе) === */
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --bg: #0b0719; --card-bg: rgba(30,20,50,0.85); --purple: #9b59b6; --purple-dark: #7d3c98; --purple-light: #a29bfe; --neon: #fd79a8; --gold: #fdcb6e; --text: #f0e6ff; --text-muted: #b8a5d6; --shadow: 0 8px 32px rgba(155,89,182,0.3); --radius: 20px; --btn-gradient: linear-gradient(135deg, #9b59b6, #7d3c98); --tab-active: linear-gradient(135deg, #9b59b6, #7d3c98); }
         body.theme-blue { --bg: #0a1628; --card-bg: rgba(16,30,60,0.85); --purple:#3498db; --purple-dark:#2980b9; --purple-light:#5dade2; --neon:#48c9b0; --text:#eaf2f8; --text-muted:#a9cce3; --shadow:0 8px 32px rgba(52,152,219,0.3); --btn-gradient:linear-gradient(135deg,#3498db,#2980b9); --tab-active:linear-gradient(135deg,#3498db,#2980b9); }
@@ -75,6 +75,8 @@
         .referral-link:active { background:rgba(155,89,182,0.15); }
         .btn-copy { background:var(--btn-gradient); border:none; padding:8px 24px; border-radius:30px; color:#fff; font-weight:600; cursor:pointer; font-size:14px; margin-top:8px; box-shadow:0 2px 10px rgba(155,89,182,0.2); transition:all 0.3s; }
         .btn-copy:active { transform:scale(0.95); }
+
+        /* Модальное окно настроек */
         .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.3s; }
         .modal-overlay.active { display: flex; }
         .modal { background: var(--card-bg); border-radius: var(--radius); padding: 24px; max-width: 360px; width: 100%; box-shadow: var(--shadow); border: 1px solid rgba(155,89,182,0.2); max-height: 80vh; overflow-y: auto; animation: slideUp 0.3s; }
@@ -89,6 +91,85 @@
         .theme-btn.active, .sound-btn.active { border-color: var(--purple); background: rgba(155,89,182,0.2); }
         .theme-btn:active, .sound-btn:active { transform:scale(0.95); }
         .theme-preview { display: block; width: 100%; height: 20px; border-radius: 6px; margin-bottom: 4px; }
+
+        /* Анимация получения скина */
+        .skin-unlock-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            animation: fadeIn 0.5s;
+        }
+        .skin-unlock-overlay.active { display: flex; }
+        .skin-unlock-box {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 30px 24px;
+            text-align: center;
+            max-width: 300px;
+            width: 100%;
+            box-shadow: 0 0 60px rgba(155,89,182,0.5);
+            animation: popIn 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+            border: 2px solid var(--gold);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .skin-unlock-emoji {
+            font-size: 80px;
+            display: block;
+            margin: 10px 0;
+            animation: float 2s ease-in-out infinite;
+        }
+        .skin-unlock-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 10px 0;
+            background: linear-gradient(135deg, var(--gold), var(--neon));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .skin-unlock-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+        .skin-unlock-btn {
+            background: var(--btn-gradient);
+            border: none;
+            padding: 10px 30px;
+            border-radius: 30px;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .skin-unlock-btn:active { transform: scale(0.95); }
+
+        /* Конфетти (звёздочки) */
+        .confetti-container {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2001;
+            overflow: hidden;
+        }
+        .confetti {
+            position: absolute;
+            font-size: 24px;
+            animation: confettiFall linear forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
         #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(20,10,40,0.95); backdrop-filter:blur(8px); padding:12px 24px; border-radius:30px; font-size:14px; color:#fff; opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:999; border:1px solid rgba(155,89,182,0.2); box-shadow:0 4px 20px rgba(0,0,0,0.5); max-width:90%; text-align:center; }
         #toast.show { opacity:1; }
         .loading { text-align:center; padding:60px 20px; }
@@ -144,11 +225,13 @@
             </div>
 
             <div class="tab-content" id="tab-shop">
+                <!-- Улучшения -->
                 <div class="shop-item"><div class="shop-item-info"><div class="shop-item-title">⚡ Усиление</div><div class="shop-item-desc">+1 сила клика</div></div><button class="shop-item-price" id="buyPower">50 🪙</button></div>
                 <div class="shop-item"><div class="shop-item-info"><div class="shop-item-title">🤖 Автокликер</div><div class="shop-item-desc">+1 авто-клик/сек</div></div><button class="shop-item-price" id="buyAuto">100 🪙</button></div>
                 <div class="shop-item"><div class="shop-item-info"><div class="shop-item-title">🚀 Супер-буст</div><div class="shop-item-desc">+5 силы клика</div></div><button class="shop-item-price" id="buySuperBoost">200 🪙</button></div>
                 <div class="shop-item"><div class="shop-item-info"><div class="shop-item-title">💎 Мега-буст</div><div class="shop-item-desc">+25 силы</div></div><button class="shop-item-price" id="buyMegaBoost">1000 🪙</button></div>
-                <div class="shop-item"><div class="shop-item-info"><div class="shop-item-title">🎨 Скин</div><div class="shop-item-desc">Золотая монетка</div></div><button class="shop-item-price" id="buySkin">500 🪙</button></div>
+                <!-- Скины (добавляются через JS) -->
+                <div id="skinsContainer"></div>
             </div>
 
             <div class="tab-content" id="tab-achievements">
@@ -166,6 +249,7 @@
         </div>
     </div>
 
+    <!-- Модалка настроек -->
     <div class="modal-overlay" id="settingsModal">
         <div class="modal">
             <div class="modal-header">
@@ -194,14 +278,24 @@
         </div>
     </div>
 
+    <!-- Анимация получения скина -->
+    <div class="skin-unlock-overlay" id="skinUnlockOverlay">
+        <div class="skin-unlock-box">
+            <span class="skin-unlock-emoji" id="skinUnlockEmoji">🌟</span>
+            <div class="skin-unlock-title" id="skinUnlockTitle">Новый скин!</div>
+            <div class="skin-unlock-desc" id="skinUnlockDesc">Вы разблокировали скин</div>
+            <button class="skin-unlock-btn" id="skinUnlockBtn">Отлично!</button>
+        </div>
+    </div>
+    <div class="confetti-container" id="confettiContainer"></div>
+
     <div id="toast"></div>
 
     <script>
-        // === ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP ===
+        // === ИНИЦИАЛИЗАЦИЯ ===
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // === КОНФИГ ===
         const API_URL = 'https://telegram-clicker-red.vercel.app/api';
         const BOT_USERNAME = 'Clickertechtestbot';
 
@@ -215,6 +309,7 @@
             totalEarned: 0,
             achievements: [],
             skin: 'default',
+            unlockedSkins: ['default'],
             dailyBonusClaimed: false,
             lastDailyBonus: ''
         };
@@ -227,7 +322,46 @@
             sound: localStorage.getItem('clicker_sound') || 'click'
         };
 
-        // === DOM-ЭЛЕМЕНТЫ ===
+        // === СПИСОК СКИНОВ ===
+        const SKINS = [
+            { id: 'default', name: 'Обычная', emoji: '🪙', gradient: 'radial-gradient(circle at 30% 30%, var(--purple-light), var(--purple-dark))', price: 0, achievementId: null },
+            { id: 'gold', name: 'Золотая', emoji: '🌟', gradient: 'radial-gradient(circle at 30% 30%, #f1c40f, #f39c12)', price: 500, achievementId: null },
+            { id: 'rainbow', name: 'Радужная', emoji: '🌈', gradient: 'radial-gradient(circle at 30% 30%, #e74c3c, #f1c40f, #2ecc71, #3498db, #9b59b6)', price: 1000, achievementId: null },
+            { id: 'cosmic', name: 'Космическая', emoji: '🚀', gradient: 'radial-gradient(circle at 30% 30%, #2c3e50, #1a1a2e)', price: 2000, achievementId: null },
+            { id: 'fire', name: 'Огненная', emoji: '🔥', gradient: 'radial-gradient(circle at 30% 30%, #e74c3c, #c0392b)', price: 3000, achievementId: null },
+            { id: 'ice', name: 'Ледяная', emoji: '❄️', gradient: 'radial-gradient(circle at 30% 30%, #3498db, #1abc9c)', price: 4000, achievementId: null },
+            { id: 'legendary', name: 'Легендарная', emoji: '👑', gradient: 'radial-gradient(circle at 30% 30%, #9b59b6, #8e44ad)', price: 0, achievementId: 'level_50' },
+            { id: 'master', name: 'Мастерская', emoji: '🏆', gradient: 'radial-gradient(circle at 30% 30%, #f39c12, #e67e22)', price: 0, achievementId: 'click_10000' }
+        ];
+
+        // === СПИСОК ДОСТИЖЕНИЙ (с привязкой к скинам) ===
+        const ACHIEVEMENTS = [
+            { id: 'click_100', name: 'Начинающий кликер', desc: '100 кликов', icon: '👆', check: s => s.totalClicks >= 100, skinReward: null },
+            { id: 'click_500', name: 'Кликер-любитель', desc: '500 кликов', icon: '🖱️', check: s => s.totalClicks >= 500, skinReward: null },
+            { id: 'click_1000', name: 'Профессиональный кликер', desc: '1 000 кликов', icon: '💼', check: s => s.totalClicks >= 1000, skinReward: null },
+            { id: 'click_5000', name: 'Кликер-мастер', desc: '5 000 кликов', icon: '🏅', check: s => s.totalClicks >= 5000, skinReward: null },
+            { id: 'click_10000', name: 'Легендарный кликер', desc: '10 000 кликов', icon: '👑', check: s => s.totalClicks >= 10000, skinReward: 'master' },
+            { id: 'click_50000', name: 'Кликер-бог', desc: '50 000 кликов', icon: '⚡', check: s => s.totalClicks >= 50000, skinReward: null },
+            { id: 'balance_1000', name: 'Серебряная лихорадка', desc: '1 000 монет', icon: '🥈', check: s => s.balance >= 1000, skinReward: null },
+            { id: 'balance_5000', name: 'Золотая лихорадка', desc: '5 000 монет', icon: '🥇', check: s => s.balance >= 5000, skinReward: null },
+            { id: 'balance_10000', name: 'Платиновая лихорадка', desc: '10 000 монет', icon: '💎', check: s => s.balance >= 10000, skinReward: null },
+            { id: 'balance_50000', name: 'Алмазная лихорадка', desc: '50 000 монет', icon: '💠', check: s => s.balance >= 50000, skinReward: null },
+            { id: 'balance_100000', name: 'Нефтяной магнат', desc: '100 000 монет', icon: '🛢️', check: s => s.balance >= 100000, skinReward: null },
+            { id: 'power_10', name: 'Силач', desc: 'Сила 10+', icon: '💪', check: s => s.clickPower >= 10, skinReward: null },
+            { id: 'power_50', name: 'Гигант', desc: 'Сила 50+', icon: '🏋️', check: s => s.clickPower >= 50, skinReward: null },
+            { id: 'power_100', name: 'Титан', desc: 'Сила 100+', icon: '🦸', check: s => s.clickPower >= 100, skinReward: null },
+            { id: 'power_500', name: 'Легенда силы', desc: 'Сила 500+', icon: '🔥', check: s => s.clickPower >= 500, skinReward: null },
+            { id: 'auto_10', name: 'Автоматчик', desc: '10 авто/сек', icon: '🤖', check: s => s.autoPower >= 10, skinReward: null },
+            { id: 'auto_50', name: 'Робот-фермер', desc: '50 авто/сек', icon: '⚙️', check: s => s.autoPower >= 50, skinReward: null },
+            { id: 'ref_1', name: 'Лидер', desc: '1 реферал', icon: '👥', check: s => s.refCount >= 1, skinReward: null },
+            { id: 'ref_5', name: 'Популярный', desc: '5 рефералов', icon: '🌟', check: s => s.refCount >= 5, skinReward: null },
+            { id: 'ref_10', name: 'Знаменитость', desc: '10 рефералов', icon: '⭐', check: s => s.refCount >= 10, skinReward: null },
+            { id: 'level_10', name: 'Мастер', desc: '10 уровень', icon: '🎯', check: s => calculateLevel(s.totalEarned) >= 10, skinReward: null },
+            { id: 'level_25', name: 'Легендарный', desc: '25 уровень', icon: '🔥', check: s => calculateLevel(s.totalEarned) >= 25, skinReward: null },
+            { id: 'level_50', name: 'Мифический', desc: '50 уровень', icon: '✨', check: s => calculateLevel(s.totalEarned) >= 50, skinReward: 'legendary' },
+        ];
+
+        // === DOM ===
         const loading = document.getElementById('loading');
         const game = document.getElementById('game');
         const balanceValue = document.getElementById('balanceValue');
@@ -250,7 +384,15 @@
         const modalClose = document.getElementById('modalClose');
         const themeBtns = document.querySelectorAll('.theme-btn');
         const soundBtns = document.querySelectorAll('.sound-btn');
+        const skinsContainer = document.getElementById('skinsContainer');
+        const skinUnlockOverlay = document.getElementById('skinUnlockOverlay');
+        const skinUnlockEmoji = document.getElementById('skinUnlockEmoji');
+        const skinUnlockTitle = document.getElementById('skinUnlockTitle');
+        const skinUnlockDesc = document.getElementById('skinUnlockDesc');
+        const skinUnlockBtn = document.getElementById('skinUnlockBtn');
+        const confettiContainer = document.getElementById('confettiContainer');
 
+        // === TOAST ===
         function showToast(msg, duration=2000) {
             toast.textContent = msg;
             toast.classList.add('show');
@@ -258,13 +400,12 @@
             toast._timeout = setTimeout(() => toast.classList.remove('show'), duration);
         }
 
-        // === НОВАЯ ВЕРСИЯ ЗВУКОВ — МЯГКИЕ И ПРИЯТНЫЕ ===
+        // === ЗВУКИ (мягкие) ===
         let audioCtx = null;
         function getAudioContext() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             return audioCtx;
         }
-
         function playSound(type) {
             try {
                 const ctx = getAudioContext();
@@ -273,11 +414,8 @@
                 const gain = ctx.createGain();
                 osc.connect(gain);
                 gain.connect(ctx.destination);
-
-                // Настройки для каждого звука — очень мягкие
                 switch(type) {
                     case 'click':
-                        // Короткий приятный "тап" – синус с быстрым затуханием
                         osc.type = 'sine';
                         osc.frequency.setValueAtTime(500, now);
                         osc.frequency.exponentialRampToValueAtTime(300, now + 0.04);
@@ -287,7 +425,6 @@
                         osc.stop(now + 0.06);
                         break;
                     case 'coin':
-                        // Нежный звон
                         osc.type = 'sine';
                         osc.frequency.setValueAtTime(900, now);
                         osc.frequency.exponentialRampToValueAtTime(700, now + 0.1);
@@ -297,7 +434,6 @@
                         osc.stop(now + 0.12);
                         break;
                     case 'boost':
-                        // Приятный низкий "взлёт"
                         osc.type = 'sine';
                         osc.frequency.setValueAtTime(250, now);
                         osc.frequency.exponentialRampToValueAtTime(450, now + 0.12);
@@ -307,7 +443,6 @@
                         osc.stop(now + 0.16);
                         break;
                     case 'achievement':
-                        // Мягкая восходящая мелодия (до-ми-соль) с низкой громкостью
                         osc.type = 'sine';
                         osc.frequency.setValueAtTime(523, now);
                         osc.frequency.setValueAtTime(659, now + 0.1);
@@ -319,7 +454,7 @@
                         break;
                     default: return;
                 }
-            } catch(e) { /* тихо игнорируем */ }
+            } catch(e) { /* тихо */ }
         }
 
         // === ПРИМЕНЕНИЕ НАСТРОЕК ===
@@ -330,14 +465,13 @@
             localStorage.setItem('clicker_theme', theme);
             themeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.theme === theme));
         }
-
         function applySound(sound) {
             settings.sound = sound;
             localStorage.setItem('clicker_sound', sound);
             soundBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.sound === sound));
         }
 
-        // === API (без изменений) ===
+        // === API ===
         async function loadData() {
             try {
                 const res = await fetch(`${API_URL}?userId=${userId}`);
@@ -346,6 +480,7 @@
                 state = { ...state, ...data };
                 state.dailyBonusClaimed = data.dailyBonusClaimed === true || data.dailyBonusClaimed === 'true';
                 state.achievements = data.achievements || [];
+                state.unlockedSkins = data.unlockedSkins || ['default'];
                 const today = new Date().toDateString();
                 if (state.lastDailyBonus === today) state.dailyBonusClaimed = true;
                 else state.dailyBonusClaimed = false;
@@ -366,9 +501,9 @@
                 game.style.display = 'block';
                 applyTheme(settings.theme);
                 applySound(settings.sound);
+                renderSkins();
             }
         }
-
         async function saveData() {
             if (isSaving) return;
             isSaving = true;
@@ -388,7 +523,7 @@
             }
         }
 
-        // === UI (без изменений) ===
+        // === UI ===
         function updateUI() {
             balanceValue.textContent = Math.floor(state.balance);
             clickPowerEl.textContent = state.clickPower;
@@ -409,9 +544,13 @@
             dailyBonusBtn.classList.toggle('claimed', state.dailyBonusClaimed);
             dailyBonusBtn.textContent = state.dailyBonusClaimed ? '✅ Получен' : '🎁 Бонус';
 
-            coinEmoji.textContent = state.skin === 'gold' ? '🌟' : '🪙';
+            // Применяем активный скин
+            const activeSkin = SKINS.find(s => s.id === state.skin) || SKINS[0];
+            coinEmoji.textContent = activeSkin.emoji;
+            clickBtn.style.background = activeSkin.gradient;
 
             renderAchievements();
+            renderSkins();
 
             document.querySelectorAll('.shop-item-price').forEach(btn => {
                 const price = parseInt(btn.textContent.replace(/[^0-9]/g,''), 10);
@@ -419,7 +558,7 @@
             });
         }
 
-        // === СИСТЕМА УРОВНЕЙ ===
+        // === УРОВНИ ===
         function calculateLevel(totalEarned) {
             let lvl=1;
             while(totalEarned >= getLevelExp(lvl)) lvl++;
@@ -427,33 +566,7 @@
         }
         function getLevelExp(level) { return Math.floor(100 * Math.pow(1.5, level-1)); }
 
-        // === АЧИВКИ (список тот же) ===
-        const ACHIEVEMENTS = [
-            { id: 'click_100', name: 'Начинающий кликер', desc: '100 кликов', icon: '👆', check: s => s.totalClicks >= 100 },
-            { id: 'click_500', name: 'Кликер-любитель', desc: '500 кликов', icon: '🖱️', check: s => s.totalClicks >= 500 },
-            { id: 'click_1000', name: 'Профессиональный кликер', desc: '1 000 кликов', icon: '💼', check: s => s.totalClicks >= 1000 },
-            { id: 'click_5000', name: 'Кликер-мастер', desc: '5 000 кликов', icon: '🏅', check: s => s.totalClicks >= 5000 },
-            { id: 'click_10000', name: 'Легендарный кликер', desc: '10 000 кликов', icon: '👑', check: s => s.totalClicks >= 10000 },
-            { id: 'click_50000', name: 'Кликер-бог', desc: '50 000 кликов', icon: '⚡', check: s => s.totalClicks >= 50000 },
-            { id: 'balance_1000', name: 'Серебряная лихорадка', desc: '1 000 монет', icon: '🥈', check: s => s.balance >= 1000 },
-            { id: 'balance_5000', name: 'Золотая лихорадка', desc: '5 000 монет', icon: '🥇', check: s => s.balance >= 5000 },
-            { id: 'balance_10000', name: 'Платиновая лихорадка', desc: '10 000 монет', icon: '💎', check: s => s.balance >= 10000 },
-            { id: 'balance_50000', name: 'Алмазная лихорадка', desc: '50 000 монет', icon: '💠', check: s => s.balance >= 50000 },
-            { id: 'balance_100000', name: 'Нефтяной магнат', desc: '100 000 монет', icon: '🛢️', check: s => s.balance >= 100000 },
-            { id: 'power_10', name: 'Силач', desc: 'Сила 10+', icon: '💪', check: s => s.clickPower >= 10 },
-            { id: 'power_50', name: 'Гигант', desc: 'Сила 50+', icon: '🏋️', check: s => s.clickPower >= 50 },
-            { id: 'power_100', name: 'Титан', desc: 'Сила 100+', icon: '🦸', check: s => s.clickPower >= 100 },
-            { id: 'power_500', name: 'Легенда силы', desc: 'Сила 500+', icon: '🔥', check: s => s.clickPower >= 500 },
-            { id: 'auto_10', name: 'Автоматчик', desc: '10 авто/сек', icon: '🤖', check: s => s.autoPower >= 10 },
-            { id: 'auto_50', name: 'Робот-фермер', desc: '50 авто/сек', icon: '⚙️', check: s => s.autoPower >= 50 },
-            { id: 'ref_1', name: 'Лидер', desc: '1 реферал', icon: '👥', check: s => s.refCount >= 1 },
-            { id: 'ref_5', name: 'Популярный', desc: '5 рефералов', icon: '🌟', check: s => s.refCount >= 5 },
-            { id: 'ref_10', name: 'Знаменитость', desc: '10 рефералов', icon: '⭐', check: s => s.refCount >= 10 },
-            { id: 'level_10', name: 'Мастер', desc: '10 уровень', icon: '🎯', check: s => calculateLevel(s.totalEarned) >= 10 },
-            { id: 'level_25', name: 'Легендарный', desc: '25 уровень', icon: '🔥', check: s => calculateLevel(s.totalEarned) >= 25 },
-            { id: 'level_50', name: 'Мифический', desc: '50 уровень', icon: '✨', check: s => calculateLevel(s.totalEarned) >= 50 },
-        ];
-
+        // === ДОСТИЖЕНИЯ ===
         function checkAchievements() {
             let unlocked = [];
             ACHIEVEMENTS.forEach(ach => {
@@ -464,6 +577,16 @@
                     state.balance += bonus;
                     showToast(`🏆 ${ach.icon} ${ach.name} (+${bonus} 🪙)`, 3000);
                     playSound('achievement');
+
+                    // Проверяем, есть ли скин в награде
+                    if (ach.skinReward) {
+                        const skinId = ach.skinReward;
+                        if (!state.unlockedSkins.includes(skinId)) {
+                            state.unlockedSkins.push(skinId);
+                            // Показываем анимацию получения скина
+                            showSkinUnlock(skinId);
+                        }
+                    }
                 }
             });
             if (unlocked.length > 0) {
@@ -478,15 +601,128 @@
             const list = document.getElementById('achievementsList');
             list.innerHTML = ACHIEVEMENTS.map(ach => {
                 const unlocked = state.achievements.includes(ach.id);
+                const hasSkin = ach.skinReward && state.unlockedSkins.includes(ach.skinReward);
+                const skinEmoji = hasSkin ? SKINS.find(s => s.id === ach.skinReward)?.emoji || '' : '';
                 return `<div class="achievement ${unlocked?'':'locked'}">
                     <div class="achievement-icon">${ach.icon}</div>
                     <div class="achievement-info">
-                        <div class="achievement-name">${unlocked?'✅ ':'🔒 '}${ach.name}</div>
-                        <div class="achievement-desc">${ach.desc}</div>
+                        <div class="achievement-name">${unlocked?'✅ ':'🔒 '}${ach.name} ${hasSkin ? '🎨' : ''}</div>
+                        <div class="achievement-desc">${ach.desc} ${hasSkin ? `(Скин: ${skinEmoji})` : ''}</div>
                     </div>
                 </div>`;
             }).join('');
         }
+
+        // === СКИНЫ (магазин) ===
+        function renderSkins() {
+            skinsContainer.innerHTML = '';
+            SKINS.forEach(skin => {
+                const isUnlocked = state.unlockedSkins.includes(skin.id);
+                const isActive = state.skin === skin.id;
+                const canBuy = !isUnlocked && skin.price > 0 && state.balance >= skin.price;
+                const isFreeAchievement = !isUnlocked && skin.price === 0 && skin.achievementId !== null;
+                const isDefault = skin.id === 'default';
+
+                let statusText = '';
+                if (isActive) statusText = '✅ Активен';
+                else if (isUnlocked) statusText = '🔓 Активировать';
+                else if (isFreeAchievement) statusText = '🏆 За достижение';
+                else if (skin.price === 0) statusText = 'Бесплатно';
+                else statusText = `${skin.price} 🪙`;
+
+                const btn = document.createElement('button');
+                btn.className = 'shop-item-price';
+                btn.textContent = statusText;
+                btn.disabled = !(isUnlocked || canBuy || (skin.price === 0 && !isUnlocked && !isFreeAchievement));
+                if (isActive) btn.disabled = true;
+
+                btn.addEventListener('click', () => {
+                    if (isActive) return;
+                    if (isUnlocked) {
+                        // Активировать уже разблокированный
+                        state.skin = skin.id;
+                        updateUI();
+                        saveData();
+                        showToast(`🎨 Скин "${skin.name}" активирован!`);
+                        return;
+                    }
+                    if (canBuy) {
+                        state.balance -= skin.price;
+                        state.unlockedSkins.push(skin.id);
+                        state.skin = skin.id;
+                        updateUI();
+                        saveData();
+                        showToast(`🎨 Скин "${skin.name}" куплен и активирован!`);
+                        playSound('boost');
+                        return;
+                    }
+                    if (skin.price === 0 && !isUnlocked && !isFreeAchievement) {
+                        // Бесплатный скин (default)
+                        state.unlockedSkins.push(skin.id);
+                        state.skin = skin.id;
+                        updateUI();
+                        saveData();
+                        showToast(`🎨 Скин "${skin.name}" активирован!`);
+                        return;
+                    }
+                    showToast('❌ Недоступно');
+                });
+
+                const item = document.createElement('div');
+                item.className = 'shop-item';
+                item.innerHTML = `
+                    <div class="shop-item-info">
+                        <div class="shop-item-title">${skin.emoji} ${skin.name} ${isActive ? '⭐' : ''}</div>
+                        <div class="shop-item-desc">${skin.achievementId ? '🎁 За достижение' : (skin.price === 0 ? 'Бесплатно' : `${skin.price} монет`)}</div>
+                    </div>
+                `;
+                item.appendChild(btn);
+                skinsContainer.appendChild(item);
+            });
+        }
+
+        // === АНИМАЦИЯ ПОЛУЧЕНИЯ СКИНА ===
+        function showSkinUnlock(skinId) {
+            const skin = SKINS.find(s => s.id === skinId);
+            if (!skin) return;
+            skinUnlockEmoji.textContent = skin.emoji;
+            skinUnlockTitle.textContent = `🎉 Новый скин!`;
+            skinUnlockDesc.textContent = `Вы разблокировали "${skin.name}"!`;
+            skinUnlockOverlay.classList.add('active');
+            // Конфетти
+            launchConfetti();
+            // Звук
+            playSound('achievement');
+            // Сохраняем
+            saveData();
+        }
+
+        function launchConfetti() {
+            confettiContainer.innerHTML = '';
+            const emojis = ['🌟', '✨', '🎉', '💫', '⭐', '🌈'];
+            for (let i=0; i<40; i++) {
+                const el = document.createElement('div');
+                el.className = 'confetti';
+                el.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+                el.style.left = Math.random()*100 + '%';
+                el.style.fontSize = (20 + Math.random()*20) + 'px';
+                el.style.animationDuration = (2 + Math.random()*2) + 's';
+                el.style.animationDelay = Math.random()*0.5 + 's';
+                confettiContainer.appendChild(el);
+            }
+            setTimeout(() => confettiContainer.innerHTML = '', 4000);
+        }
+
+        skinUnlockBtn.addEventListener('click', () => {
+            skinUnlockOverlay.classList.remove('active');
+            confettiContainer.innerHTML = '';
+            // Активируем скин автоматически
+            const skinId = state.unlockedSkins[state.unlockedSkins.length-1];
+            state.skin = skinId;
+            updateUI();
+            saveData();
+            showToast(`🎨 Скин "${SKINS.find(s=>s.id===skinId).name}" активирован!`);
+        });
 
         // === АВТОКЛИКЕР ===
         function startAutoClicker() {
@@ -516,7 +752,7 @@
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         }
 
-        // === РЕФЕРАЛЬНАЯ ССЫЛКА ===
+        // === РЕФЕРАЛЫ ===
         function generateRefLink() {
             import('https://cdn.jsdelivr.net/npm/base64-js@1.5.1/base64js.min.js')
                 .then(module => {
@@ -544,7 +780,7 @@
             }
         }
 
-        // === МАГАЗИН ===
+        // === МАГАЗИН (улучшения) ===
         function buyItem(cost, action, msg) {
             if (state.balance < cost) { showToast('❌ Недостаточно монет!'); return; }
             state.balance -= cost;
@@ -559,9 +795,7 @@
 
         // === КЛИК ===
         function handleClick(e) {
-            // Проигрываем выбранный звук клика (settings.sound)
             playSound(settings.sound);
-
             const rect = e.currentTarget.getBoundingClientRect();
             const x = (e.clientX || e.touches?.[0]?.clientX || rect.left + rect.width/2) - rect.left;
             const y = (e.clientY || e.touches?.[0]?.clientY || rect.top + rect.height/2) - rect.top;
@@ -624,20 +858,18 @@
             });
         });
 
-        // === МОДАЛЬНОЕ ОКНО ===
+        // === МОДАЛКА НАСТРОЕК ===
         settingsBtn.addEventListener('click', () => settingsModal.classList.add('active'));
         modalClose.addEventListener('click', () => settingsModal.classList.remove('active'));
         settingsModal.addEventListener('click', (e) => {
             if (e.target === settingsModal) settingsModal.classList.remove('active');
         });
-
         themeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 applyTheme(btn.dataset.theme);
                 showToast('🎨 Тема применена', 1000);
             });
         });
-
         soundBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 applySound(btn.dataset.sound);
@@ -667,7 +899,6 @@
             document.getElementById('buyAuto').addEventListener('click', () => buyItem(100, ()=>{ state.autoPower+=1; startAutoClicker(); }, '🤖 Автокликер +1'));
             document.getElementById('buySuperBoost').addEventListener('click', () => buyItem(200, ()=>state.clickPower+=5, '🚀 Супер-буст +5'));
             document.getElementById('buyMegaBoost').addEventListener('click', () => buyItem(1000, ()=>state.clickPower+=25, '💎 Мега-буст +25'));
-            document.getElementById('buySkin').addEventListener('click', () => buyItem(500, ()=>{ state.skin = state.skin==='gold' ? 'default' : 'gold'; }, state.skin==='gold' ? '🎨 Скин снят' : '🎨 Золотой скин!'));
 
             generateRefLink();
             document.getElementById('copyRefLink').addEventListener('click', copyRefLink);
