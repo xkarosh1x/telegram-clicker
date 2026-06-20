@@ -125,7 +125,6 @@ def get_or_create_user(user_id: str):
             'auto_power': 0,
             'ref_count': 0,
             'total_earned': 0,
-            'achievements': [],
             'skin': 'default',
             'daily_bonus_claimed': False,
             'last_daily_bonus': '',
@@ -205,8 +204,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
+    # Получаем username для приветствия
+    username = update.effective_user.first_name or "Игрок"
+    
     await update.message.reply_text(
-        "🪙 *Добро пожаловать в Кликер!*\n\n"
+        f"🪙 *Привет, {username}!*\n\n"
         f"💰 Баланс: `{user.get('balance', 0)}`\n"
         f"💪 Сила клика: `{user.get('click_power', 1)}`\n"
         f"👥 Приглашено друзей: `{user.get('ref_count', 0)}`\n\n"
@@ -234,8 +236,7 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🤖 Автокликер: `{user.get('auto_power', 0)}/сек`\n"
             f"👆 Всего кликов: `{user.get('total_clicks', 0)}`\n"
             f"👥 Рефералов: `{user.get('ref_count', 0)}`\n"
-            f"🏅 Уровень: `{calculate_level(user.get('total_earned', 0))}`\n"
-            f"🏆 Достижений: `{len(user.get('achievements', []))}`"
+            f"🏅 Уровень: `{calculate_level(user.get('total_earned', 0))}`"
         )
         await query.edit_message_text(text, parse_mode='Markdown')
     
