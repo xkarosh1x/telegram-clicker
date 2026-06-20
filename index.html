@@ -38,6 +38,12 @@
             justify-content: center;
             padding: 16px;
             background-image: radial-gradient(circle at 10% 20%, rgba(155, 89, 182, 0.1) 0%, transparent 50%);
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         .container {
@@ -50,6 +56,12 @@
             padding: 24px 20px 30px;
             box-shadow: var(--shadow);
             border: 1px solid rgba(155, 89, 182, 0.15);
+            animation: slideUp 0.4s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* === ХЕДЕР === */
@@ -58,6 +70,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
+            animation: fadeIn 0.6s ease;
         }
 
         .level-badge {
@@ -68,6 +81,7 @@
             font-weight: 600;
             color: #fff;
             box-shadow: 0 0 15px rgba(253, 121, 168, 0.3);
+            transition: box-shadow 0.3s;
         }
 
         .daily-bonus {
@@ -78,8 +92,15 @@
             font-weight: 500;
             color: var(--text-muted);
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
             border: 1px solid rgba(155, 89, 182, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.3); }
+            50% { box-shadow: 0 0 10px 5px rgba(155, 89, 182, 0.1); }
+            100% { box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.3); }
         }
 
         .daily-bonus:active {
@@ -90,12 +111,14 @@
             opacity: 0.5;
             pointer-events: none;
             border-color: transparent;
+            animation: none;
         }
 
         /* === КОИН === */
         .coin-section {
             text-align: center;
             margin: 8px 0 12px;
+            position: relative;
         }
 
         .balance {
@@ -106,6 +129,21 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             line-height: 1.2;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.2s;
+        }
+        .balance .coin-icon {
+            font-size: 40px;
+            -webkit-text-fill-color: initial;
+            color: var(--gold);
+            filter: drop-shadow(0 0 8px rgba(253, 203, 110, 0.4));
+            animation: coinFloat 3s ease-in-out infinite;
+        }
+        @keyframes coinFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
         }
 
         .click-btn {
@@ -116,7 +154,7 @@
             background: radial-gradient(circle at 30% 30%, var(--purple-light), var(--purple-dark));
             font-size: 72px;
             cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.2s;
+            transition: transform 0.1s, box-shadow 0.3s;
             box-shadow: 0 0 30px rgba(155, 89, 182, 0.4), inset 0 -6px 0 rgba(0, 0, 0, 0.2);
             margin: 12px auto;
             display: flex;
@@ -125,17 +163,52 @@
             color: #fff;
             touch-action: manipulation;
             position: relative;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
         }
 
         .click-btn:active {
-            transform: scale(0.92);
+            transform: scale(0.92) !important;
             box-shadow: 0 0 50px rgba(253, 121, 168, 0.6), inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+            animation: none;
+        }
+
+        /* === ЭФФЕКТ НАВЕДЕНИЯ ДЛЯ ПК === */
+        @media (hover: hover) {
+            .click-btn:hover .hover-glow {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+
+        .hover-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120%;
+            height: 120%;
+            transform: translate(-50%, -50%) scale(0.8);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(155, 89, 182, 0.4) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s, transform 0.4s;
+            pointer-events: none;
+            animation: breathe 2s ease-in-out infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.3; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.7; }
         }
 
         .click-btn .ripple {
             position: absolute;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.4);
             animation: rippleAnim 0.6s ease-out forwards;
             pointer-events: none;
         }
@@ -153,6 +226,7 @@
             grid-template-columns: repeat(4, 1fr);
             gap: 8px;
             margin: 16px 0;
+            animation: fadeIn 0.8s ease;
         }
 
         .stat-box {
@@ -161,6 +235,12 @@
             padding: 10px 4px;
             text-align: center;
             border: 1px solid rgba(155, 89, 182, 0.1);
+            transition: all 0.3s;
+            animation: slideUp 0.5s ease;
+        }
+        .stat-box:hover {
+            background: rgba(155, 89, 182, 0.1);
+            transform: translateY(-2px);
         }
 
         .stat-label {
@@ -175,11 +255,13 @@
             font-weight: 700;
             margin-top: 2px;
             color: var(--text);
+            transition: all 0.2s;
         }
 
         /* === ПРОГРЕСС УРОВНЯ === */
         .level-progress {
             margin: 12px 0 16px;
+            animation: fadeIn 0.7s ease;
         }
 
         .level-progress .info {
@@ -203,7 +285,7 @@
             width: 0%;
             background: linear-gradient(90deg, var(--purple), var(--neon-pink));
             border-radius: 10px;
-            transition: width 0.3s;
+            transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         /* === ВКЛАДКИ === */
@@ -214,6 +296,7 @@
             border-radius: 14px;
             padding: 4px;
             margin: 16px 0 12px;
+            animation: fadeIn 0.9s ease;
         }
 
         .tab {
@@ -226,7 +309,7 @@
             font-weight: 600;
             font-size: 14px;
             cursor: pointer;
-            transition: all 0.25s;
+            transition: all 0.3s;
         }
 
         .tab.active {
@@ -237,7 +320,7 @@
 
         .tab-content {
             display: none;
-            animation: fade 0.25s ease;
+            animation: fade 0.3s ease;
         }
 
         .tab-content.active {
@@ -245,14 +328,8 @@
         }
 
         @keyframes fade {
-            from {
-                opacity: 0;
-                transform: translateY(6px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* === МАГАЗИН === */
@@ -265,11 +342,12 @@
             padding: 12px 16px;
             margin-bottom: 8px;
             border: 1px solid rgba(155, 89, 182, 0.08);
-            transition: background 0.2s;
+            transition: all 0.3s;
         }
 
         .shop-item:active {
             background: rgba(155, 89, 182, 0.15);
+            transform: scale(0.98);
         }
 
         .shop-item-info {
@@ -296,7 +374,7 @@
             font-weight: 700;
             font-size: 14px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
             box-shadow: 0 2px 10px rgba(155, 89, 182, 0.2);
         }
 
@@ -319,6 +397,7 @@
             padding: 10px 14px;
             margin-bottom: 6px;
             border-left: 4px solid var(--purple);
+            transition: all 0.3s;
         }
 
         .achievement.locked {
@@ -351,6 +430,7 @@
             border-radius: 14px;
             padding: 16px;
             border: 1px solid rgba(155, 89, 182, 0.1);
+            animation: fadeIn 0.5s ease;
         }
 
         .referral-link {
@@ -363,6 +443,7 @@
             cursor: pointer;
             color: var(--text-muted);
             border: 1px dashed rgba(155, 89, 182, 0.2);
+            transition: background 0.3s;
         }
 
         .referral-link:active {
@@ -380,6 +461,7 @@
             font-size: 14px;
             margin-top: 8px;
             box-shadow: 0 2px 10px rgba(155, 89, 182, 0.2);
+            transition: all 0.3s;
         }
 
         .btn-copy:active {
@@ -429,9 +511,7 @@
         }
 
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
 
         /* === АДАПТИВ === */
@@ -443,6 +523,9 @@
             }
             .balance {
                 font-size: 38px;
+            }
+            .balance .coin-icon {
+                font-size: 32px;
             }
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -467,8 +550,14 @@
 
             <!-- Монетка -->
             <div class="coin-section">
-                <div class="balance" id="balance">0</div>
-                <button class="click-btn" id="clickBtn">🪙</button>
+                <div class="balance" id="balance">
+                    <span id="balanceValue">0</span>
+                    <span class="coin-icon">🪙</span>
+                </div>
+                <button class="click-btn" id="clickBtn">
+                    <span class="hover-glow"></span>
+                    <span id="coinEmoji">🪙</span>
+                </button>
             </div>
 
             <!-- Статистика -->
@@ -574,7 +663,7 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        // === КОНФИГ (ЗДЕСЬ ВСТАВЛЕНЫ ТВОИ ДАННЫЕ) ===
+        // === КОНФИГ ===
         const API_URL = 'https://telegram-clicker-red.vercel.app/api';
         const BOT_USERNAME = 'Clickertechtestbot';
 
@@ -598,7 +687,7 @@
         // === DOM-ЭЛЕМЕНТЫ ===
         const loading = document.getElementById('loading');
         const game = document.getElementById('game');
-        const balanceEl = document.getElementById('balance');
+        const balanceValue = document.getElementById('balanceValue');
         const clickPowerEl = document.getElementById('clickPower');
         const totalClicksEl = document.getElementById('totalClicks');
         const autoPowerEl = document.getElementById('autoPower');
@@ -608,6 +697,7 @@
         const levelProgress = document.getElementById('levelProgress');
         const levelProgressText = document.getElementById('levelProgressText');
         const clickBtn = document.getElementById('clickBtn');
+        const coinEmoji = document.getElementById('coinEmoji');
         const dailyBonusBtn = document.getElementById('dailyBonus');
         const toast = document.getElementById('toast');
         const refLink = document.getElementById('refLink');
@@ -627,10 +717,8 @@
                 if (!res.ok) throw new Error('Ошибка загрузки');
                 const data = await res.json();
                 state = { ...state, ...data };
-                // Приводим типы
                 state.dailyBonusClaimed = data.dailyBonusClaimed === true || data.dailyBonusClaimed === 'true';
                 state.achievements = data.achievements || [];
-                // Проверка ежедневного бонуса
                 const today = new Date().toDateString();
                 if (state.lastDailyBonus === today) {
                     state.dailyBonusClaimed = true;
@@ -679,14 +767,13 @@
 
         // === UI ===
         function updateUI() {
-            balanceEl.textContent = Math.floor(state.balance);
+            balanceValue.textContent = Math.floor(state.balance);
             clickPowerEl.textContent = state.clickPower;
             totalClicksEl.textContent = state.totalClicks;
             autoPowerEl.textContent = state.autoPower;
             refCountEl.textContent = state.refCount;
             refCountDisplay.textContent = state.refCount;
 
-            // Уровень
             const level = calculateLevel(state.totalEarned);
             levelBadge.textContent = `🏅 Ур. ${level}`;
             const nextExp = getLevelExp(level);
@@ -696,7 +783,6 @@
             levelProgress.style.width = `${progress}%`;
             levelProgressText.textContent = `${Math.floor(currentExp - prevExp)} / ${Math.floor(nextExp - prevExp)}`;
 
-            // Ежедневный бонус
             if (state.dailyBonusClaimed) {
                 dailyBonusBtn.classList.add('claimed');
                 dailyBonusBtn.textContent = '✅ Получен';
@@ -706,12 +792,10 @@
             }
 
             // Скин
-            clickBtn.textContent = state.skin === 'gold' ? '🌟' : '🪙';
+            coinEmoji.textContent = state.skin === 'gold' ? '🌟' : '🪙';
 
-            // Достижения
             renderAchievements();
 
-            // Обновляем кнопки магазина
             document.querySelectorAll('.shop-item-price').forEach(btn => {
                 const priceText = btn.textContent.replace(/[^0-9]/g, '');
                 const price = parseInt(priceText, 10);
@@ -823,7 +907,6 @@
                     refLink.textContent = `https://t.me/${BOT_USERNAME}?start=ref_${code}`;
                 })
                 .catch(() => {
-                    // fallback
                     const fallback = btoa(`${userId}:${Date.now()}`).slice(0, 16);
                     refLink.textContent = `https://t.me/${BOT_USERNAME}?start=ref_${fallback}`;
                 });
@@ -863,8 +946,8 @@
         function handleClick(e) {
             // Эффект ряби
             const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const x = (e.clientX || e.touches?.[0]?.clientX || rect.left + rect.width/2) - rect.left;
+            const y = (e.clientY || e.touches?.[0]?.clientY || rect.top + rect.height/2) - rect.top;
             const ripple = document.createElement('div');
             ripple.className = 'ripple';
             ripple.style.width = ripple.style.height = '40px';
@@ -876,6 +959,10 @@
             state.balance += state.clickPower;
             state.totalClicks += 1;
             state.totalEarned += state.clickPower;
+
+            // Визуальный фидбек на балансе
+            balanceValue.style.transform = 'scale(1.1)';
+            setTimeout(() => balanceValue.style.transform = 'scale(1)', 150);
 
             updateUI();
             saveData();
@@ -896,24 +983,22 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await loadData();
 
-            // События
             clickBtn.addEventListener('click', handleClick);
             // Автоклик при зажатии
             let holdInterval;
-            clickBtn.addEventListener('mousedown', () => {
+            const startHold = (e) => {
                 holdInterval = setInterval(handleClick, 100);
-            });
-            clickBtn.addEventListener('mouseup', () => clearInterval(holdInterval));
-            clickBtn.addEventListener('mouseleave', () => clearInterval(holdInterval));
-            clickBtn.addEventListener('touchstart', (e) => {
-                holdInterval = setInterval(handleClick, 100);
-            });
-            clickBtn.addEventListener('touchend', () => clearInterval(holdInterval));
-            clickBtn.addEventListener('touchcancel', () => clearInterval(holdInterval));
+            };
+            const stopHold = () => clearInterval(holdInterval);
+            clickBtn.addEventListener('mousedown', startHold);
+            clickBtn.addEventListener('mouseup', stopHold);
+            clickBtn.addEventListener('mouseleave', stopHold);
+            clickBtn.addEventListener('touchstart', startHold);
+            clickBtn.addEventListener('touchend', stopHold);
+            clickBtn.addEventListener('touchcancel', stopHold);
 
             dailyBonusBtn.addEventListener('click', claimDailyBonus);
 
-            // Магазин
             document.getElementById('buyPower').addEventListener('click', () => {
                 buyItem(50, () => state.clickPower += 1, '⚡ Сила +1');
             });
@@ -935,11 +1020,9 @@
                 }, state.skin === 'gold' ? '🎨 Скин снят' : '🎨 Золотой скин!');
             });
 
-            // Рефералы
             generateRefLink();
             document.getElementById('copyRefLink').addEventListener('click', copyRefLink);
 
-            // Сохранение при закрытии
             tg.onEvent('viewportChanged', saveData);
             window.addEventListener('beforeunload', saveData);
 
