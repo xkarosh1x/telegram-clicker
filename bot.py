@@ -2,6 +2,8 @@ import os
 import logging
 import requests
 from datetime import datetime
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # --- НАСТРОЙКА ЛОГИРОВАНИЯ ---
 logging.basicConfig(
@@ -16,32 +18,7 @@ if not BOT_TOKEN:
     logger.error("BOT_TOKEN не установлен!")
     exit(1)
 
-# --- ПРИНУДИТЕЛЬНАЯ ОЧИСТКА ВЕБХУКА И СТАРЫХ ОБНОВЛЕНИЙ ---
-def clear_webhook_and_updates():
-    try:
-        # 1. Удаляем вебхук (если был установлен)
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook"
-        response = requests.get(url)
-        logger.info(f"deleteWebhook: {response.json()}")
-
-        # 2. Получаем все обновления с offset=-1, чтобы очистить очередь
-        #    Это сбрасывает все накопленные обновления
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-        response = requests.get(url, params={'offset': -1, 'timeout': 1})
-        logger.info(f"getUpdates clear: {response.json()}")
-
-        # 3. Дополнительно: сбрасываем вебхук с пустым URL (гарантия)
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook"
-        response = requests.get(url, params={'url': ''})
-        logger.info(f"setWebhook empty: {response.json()}")
-
-    except Exception as e:
-        logger.error(f"Ошибка очистки: {e}")
-
-# --- ВЫЗЫВАЕМ ОЧИСТКУ ПЕРЕД ИМПОРТАМИ TELEGRAM (чтобы не мешало) ---
-clear_webhook_and_updates()
-
-# --- ТЕПЕРЬ ИМПОРТИРУЕМ TELEGRAM ---
+# --- ИМПОРТЫ TELEGRAM ---
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
@@ -54,7 +31,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     logger.error("Supabase credentials not set!")
     exit(1)
 
-# --- SUPABASE CLIENT (без изменений) ---
+# --- SUPABASE CLIENT ---
 class SupabaseClient:
     def __init__(self, url, key):
         self.url = url.rstrip('/')
@@ -313,22 +290,38 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
 
+# --- HTTP-сервер для health check (чтобы Render видел открытый порт) ---
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'OK')
+
+    def log_message(self, format, *args):
+        # Отключаем логирование запросов к health-серверу, чтобы не засорять вывод
+        pass
+
+def run_health_server():
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    logger.info(f"Health server running on port {port}")
+    server.serve_forever()
+
 # --- MAIN ---
 def main():
     try:
-        # Еще раз очищаем вебхук перед запуском (на всякий случай)
-        clear_webhook_and_updates()
+        # Запускаем health-сервер в фоновом потоке
+        thread = threading.Thread(target=run_health_server, daemon=True)
+        thread.start()
 
-        # Создаем приложение
+        # Создаём приложение Telegram
         app = Application.builder().token(BOT_TOKEN).build()
-        
-        # Добавляем обработчики
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CallbackQueryHandler(callback_handler))
         
         logger.info("🤖 Бот успешно запущен!")
         
-        # Запускаем polling с очисткой старых апдейтов
+        # Запускаем polling
         app.run_polling(
             allowed_updates=Update.ALL_TYPES,
             drop_pending_updates=True,
