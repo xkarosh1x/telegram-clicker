@@ -6,7 +6,7 @@
     <title>Кликер</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* === СТИЛИ (без изменений) === */
+        /* === СТИЛИ (без изменений, те же, что в предыдущем ответе) === */
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --bg: #0b0719; --card-bg: rgba(30,20,50,0.85); --purple: #9b59b6; --purple-dark: #7d3c98; --purple-light: #a29bfe; --neon: #fd79a8; --gold: #fdcb6e; --text: #f0e6ff; --text-muted: #b8a5d6; --shadow: 0 8px 32px rgba(155,89,182,0.3); --radius: 20px; --btn-gradient: linear-gradient(135deg, #9b59b6, #7d3c98); --tab-active: linear-gradient(135deg, #9b59b6, #7d3c98); }
         body.theme-blue { --bg: #0a1628; --card-bg: rgba(16,30,60,0.85); --purple:#3498db; --purple-dark:#2980b9; --purple-light:#5dade2; --neon:#48c9b0; --text:#eaf2f8; --text-muted:#a9cce3; --shadow:0 8px 32px rgba(52,152,219,0.3); --btn-gradient:linear-gradient(135deg,#3498db,#2980b9); --tab-active:linear-gradient(135deg,#3498db,#2980b9); }
@@ -278,7 +278,7 @@
             { id: 'master', name: 'Мастерская', emoji: '🏆', gradient: 'radial-gradient(circle at 30% 30%, #f39c12, #e67e22)', price: 0, achievementId: 'click_10000' }
         ];
 
-        // === СПИСОК ДОСТИЖЕНИЙ (с привязкой к скинам) ===
+        // === СПИСОК ДОСТИЖЕНИЙ ===
         const ACHIEVEMENTS = [
             { id: 'click_100', name: 'Начинающий кликер', desc: '100 кликов', icon: '👆', check: s => s.totalClicks >= 100, skinReward: null },
             { id: 'click_500', name: 'Кликер-любитель', desc: '500 кликов', icon: '🖱️', check: s => s.totalClicks >= 500, skinReward: null },
@@ -344,7 +344,7 @@
             toast._timeout = setTimeout(() => toast.classList.remove('show'), duration);
         }
 
-        // === ЗВУКИ (мягкие) ===
+        // === ЗВУКИ ===
         let audioCtx = null;
         function getAudioContext() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -415,11 +415,50 @@
             soundBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.sound === sound));
         }
 
+        // === ЛОКАЛЬНОЕ СОХРАНЕНИЕ (всегда) ===
+        function saveToLocalStorage() {
+            try {
+                const data = {
+                    balance: state.balance,
+                    clickPower: state.clickPower,
+                    totalClicks: state.totalClicks,
+                    autoPower: state.autoPower,
+                    refCount: state.refCount,
+                    totalEarned: state.totalEarned,
+                    achievements: state.achievements,
+                    skin: state.skin,
+                    unlockedSkins: state.unlockedSkins,
+                    dailyBonusClaimed: state.dailyBonusClaimed,
+                    lastDailyBonus: state.lastDailyBonus
+                };
+                localStorage.setItem(`clicker_${userId}`, JSON.stringify(data));
+                console.log('Данные сохранены в localStorage');
+            } catch(e) {
+                console.error('Ошибка сохранения в localStorage:', e);
+            }
+        }
+
         // === API ===
         async function loadData() {
+            // Сначала загружаем из localStorage
+            try {
+                const saved = localStorage.getItem(`clicker_${userId}`);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    state = { ...state, ...parsed };
+                    updateUI();
+                    checkAchievements();
+                    startAutoClicker();
+                    console.log('Загружено из localStorage');
+                }
+            } catch(e) {
+                console.error('Ошибка загрузки из localStorage:', e);
+            }
+
+            // Потом синхронизируем с сервером
             try {
                 const res = await fetch(`${API_URL}?userId=${userId}`);
-                if (!res.ok) throw new Error('Ошибка загрузки');
+                if (!res.ok) throw new Error('Ошибка загрузки с сервера');
                 const data = await res.json();
                 state = { ...state, ...data };
                 state.dailyBonusClaimed = data.dailyBonusClaimed === true || data.dailyBonusClaimed === 'true';
@@ -428,18 +467,16 @@
                 const today = new Date().toDateString();
                 if (state.lastDailyBonus === today) state.dailyBonusClaimed = true;
                 else state.dailyBonusClaimed = false;
+                // Сохраняем свежие данные в localStorage
+                saveToLocalStorage();
                 updateUI();
                 checkAchievements();
                 startAutoClicker();
+                console.log('Синхронизировано с сервером');
             } catch(e) {
-                console.error(e);
-                const saved = localStorage.getItem(`clicker_${userId}`);
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    state = { ...state, ...parsed };
-                    updateUI();
-                    showToast('Загружено из кэша');
-                }
+                console.error('Ошибка синхронизации с сервером:', e);
+                // Если сервер недоступен, продолжаем работать с локальными данными
+                showToast('Работаем в офлайн-режиме', 2000);
             } finally {
                 loading.style.display = 'none';
                 game.style.display = 'block';
@@ -448,20 +485,25 @@
                 renderSkins();
             }
         }
+
         async function saveData() {
             if (isSaving) return;
             isSaving = true;
             try {
+                // Всегда сохраняем локально
+                saveToLocalStorage();
+
+                // Пытаемся отправить на сервер
                 const res = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId, ...state })
                 });
-                if (!res.ok) throw new Error('Ошибка сохранения');
-                localStorage.setItem(`clicker_${userId}`, JSON.stringify(state));
+                if (!res.ok) throw new Error('Ошибка сохранения на сервере');
+                console.log('Данные отправлены на сервер');
             } catch(e) {
-                console.error(e);
-                localStorage.setItem(`clicker_${userId}`, JSON.stringify(state));
+                console.error('Ошибка сохранения:', e);
+                showToast('⚠️ Данные сохранены локально', 1500);
             } finally {
                 isSaving = false;
             }
@@ -555,10 +597,9 @@
             }).join('');
         }
 
-        // === СКИНЫ (с защитой от ошибок) ===
+        // === СКИНЫ (надёжная отрисовка) ===
         function renderSkins() {
             try {
-                // Проверяем, что элемент существует
                 if (!skinsList) {
                     console.error('skinsList не найден');
                     return;
@@ -569,7 +610,6 @@
                     const isActive = state.skin === skin.id;
                     const canBuy = !isUnlocked && skin.price > 0 && state.balance >= skin.price;
                     const isFreeAchievement = !isUnlocked && skin.price === 0 && skin.achievementId !== null;
-                    const isDefault = skin.id === 'default';
 
                     let statusText = '';
                     if (isActive) statusText = '✅ Активен';
@@ -627,9 +667,7 @@
                 });
             } catch(e) {
                 console.error('Ошибка в renderSkins:', e);
-                showToast('❌ Ошибка при загрузке скинов', 3000);
-                // Пытаемся восстановить: показываем хотя бы часть скинов без ошибок
-                // Но мы уже очистили список, поэтому просто ничего не добавляем
+                skinsList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">⚠️ Ошибка загрузки скинов</div>';
             }
         }
 
@@ -728,7 +766,7 @@
             }
         }
 
-        // === МАГАЗИН (улучшения) ===
+        // === МАГАЗИН ===
         function buyItem(cost, action, msg) {
             if (state.balance < cost) { showToast('❌ Недостаточно монет!'); return; }
             state.balance -= cost;
