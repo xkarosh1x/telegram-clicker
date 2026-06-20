@@ -3,6 +3,7 @@ import logging
 import requests
 import time
 import threading
+import re
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -10,18 +11,37 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ---
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
+# --- ФУНКЦИЯ ОЧИСТКИ ОТ НЕПЕЧАТНЫХ СИМВОЛОВ ---
+def clean_url(url):
+    if not url:
+        return ''
+    # Удаляем управляющие символы (ASCII 0-31 и 127)
+    url = re.sub(r'[\x00-\x1f\x7f]', '', url)
+    # Удаляем пробелы в начале и конце
+    url = url.strip()
+    return url
+
+# --- ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (с очисткой) ---
+BOT_TOKEN = clean_url(os.environ.get('BOT_TOKEN', ''))
 if not BOT_TOKEN:
-    logger.error("BOT_TOKEN не установлен!")
+    logger.error("BOT_TOKEN не установлен или пуст!")
     exit(1)
 
-WEBAPP_URL = os.environ.get('WEBAPP_URL', 'https://xkarosh1x.github.io/telegram-clicker')
-SUPABASE_URL = os.environ.get('SUPABASE_URL')
-SUPABASE_KEY = os.environ.get('SUPABASE_ANON_KEY')
+WEBAPP_URL = clean_url(os.environ.get('WEBAPP_URL', ''))
+if not WEBAPP_URL:
+    logger.error("WEBAPP_URL не установлен!")
+    exit(1)
+logger.info(f"WEBAPP_URL = {WEBAPP_URL}")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    logger.error("Supabase credentials not set!")
+SUPABASE_URL = clean_url(os.environ.get('SUPABASE_URL', ''))
+if not SUPABASE_URL:
+    logger.error("SUPABASE_URL не установлен!")
+    exit(1)
+logger.info(f"SUPABASE_URL = {SUPABASE_URL}")
+
+SUPABASE_KEY = clean_url(os.environ.get('SUPABASE_ANON_KEY', ''))
+if not SUPABASE_KEY:
+    logger.error("SUPABASE_ANON_KEY не установлен!")
     exit(1)
 
 # --- ИМПОРТЫ TELEGRAM ---
@@ -293,7 +313,7 @@ def run_health_server():
     server.serve_forever()
 
 # ===================================================================
-# 5. ОЧИСТКА ВЕБХУКА И СБРОС ОБНОВЛЕНИЙ (без logout)
+# 5. ОЧИСТКА ВЕБХУКА И СБРОС ОБНОВЛЕНИЙ
 # ===================================================================
 def clear_webhook_and_updates():
     try:
@@ -319,21 +339,17 @@ def clear_webhook_and_updates():
 # 6. MAIN
 # ===================================================================
 def main():
-    # Очистка перед запуском (без logout)
     clear_webhook_and_updates()
     
-    # Запускаем health-сервер
     thread = threading.Thread(target=run_health_server, daemon=True)
     thread.start()
     
-    # Создаём приложение
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback_handler))
     
     logger.info("Бот запущен, начинаем polling...")
     
-    # Запускаем polling с защитой от конфликтов
     while True:
         try:
             app.run_polling(
@@ -348,7 +364,7 @@ def main():
                 logger.info("Обнаружен конфликт, перезапуск через 10 секунд...")
                 time.sleep(10)
                 clear_webhook_and_updates()
-                continue  # перезапускаем цикл
+                continue
             else:
                 raise
 
