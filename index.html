@@ -852,10 +852,8 @@
 
             coinEmoji.textContent = state.skin === 'gold' ? '🌟' : '🪙';
 
-            // Рендерим достижения (но они не показываются, пока вкладка не активна)
             renderAchievements();
 
-            // Обновляем кнопки магазина (даже если вкладка скрыта)
             document.querySelectorAll('.shop-item-price').forEach(btn => {
                 const priceText = btn.textContent.replace(/[^0-9]/g, '');
                 const price = parseInt(priceText, 10);
@@ -1061,15 +1059,25 @@
             });
         }
 
-        // === ВКЛАДКИ ===
+        // === ВКЛАДКИ (с поддержкой toggle) ===
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
-                // Убираем активность со всех вкладок и контента
+                const tabId = tab.dataset.tab;
+                const isActive = tab.classList.contains('active');
+
+                // Если вкладка уже активна — закрываем её (убираем активность)
+                if (isActive) {
+                    // Снимаем активность со всех вкладок и контента
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                    // Ничего не показываем
+                    return;
+                }
+
+                // Иначе активируем выбранную вкладку
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-                // Активируем текущую вкладку
                 tab.classList.add('active');
-                const tabId = tab.dataset.tab;
                 const targetContent = document.getElementById(`tab-${tabId}`);
                 targetContent.classList.add('active');
                 // Запускаем анимацию для элементов (если это shop или achievements)
@@ -1123,7 +1131,7 @@
             tg.onEvent('viewportChanged', saveData);
             window.addEventListener('beforeunload', saveData);
 
-            // Изначально никакая вкладка не активна – контент скрыт
+            // Изначально никакая вкладка не активна
             updateUI();
             checkAchievements();
         });
