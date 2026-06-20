@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Кликер</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f0e17;
+            --card: #1a1a2e;
+            --gold: #ffd700;
+            --purple: #7c3aed;
+            --green: #10b981;
+            --red: #ef4444;
+            --blue: #3b82f6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: #fff;
+            min-height: 100vh;
+            padding: 16px;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            margin-bottom: 16px;
+        }
+        .level-badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .daily-bonus {
+            background: linear-gradient(135deg, #f7971e, #ffd200);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a2e;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .daily-bonus:active { transform: scale(0.95); }
+        .daily-bonus.claimed { opacity: 0.5; cursor: not-allowed; }
+        
+        /* Main Coin */
+        .coin-section {
+            text-align: center;
+            padding: 20px 0;
+        }
+        .balance {
+            font-size: 52px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f7971e, #ffd200);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .click-btn {
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            border: none;
+            background: radial-gradient(circle at 30% 30%, #f7971e, #e6a800);
+            font-size: 90px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 8px 0 #b37b00, 0 10px 40px rgba(255, 210, 0, 0.2);
+            margin: 16px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            position: relative;
+            touch-action: manipulation;
+        }
+        .click-btn:active {
+            transform: scale(0.92);
+            box-shadow: 0 4px 0 #b37b00;
+        }
+        .click-btn .click-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 215, 0, 0.3);
+            animation: ripple 0.6s ease-out;
+            pointer-events: none;
+        }
+        @keyframes ripple {
+            to { transform: scale(2); opacity: 0; }
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin: 16px 0;
+        }
+        .stat-box {
+            background: var(--card);
+            padding: 12px 8px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-label { font-size: 10px; opacity: 0.6; text-transform: uppercase; }
+        .stat-value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin: 16px 0;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 4px;
+        }
+        .tab {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            color: #fff;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+        .tab.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Shop Items */
+        .shop-item {
+            background: var(--card);
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .shop-item-info { flex: 1; }
+        .shop-item-title { font-weight: 600; font-size: 15px; }
+        .shop-item-desc { font-size: 12px; opacity: 0.6; margin-top: 2px; }
+        .shop-item-price {
+            background: linear-gradient(135deg, #f7971e, #ffd200);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 14px;
+            color: #1a1a2e;
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: none;
+        }
+        .shop-item-price:active { transform: scale(0.95); }
+        .shop-item-price:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        /* Achievements */
+        .achievement {
+            background: var(--card);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .achievement.unlocked { border-left: 4px solid var(--gold); }
+        .achievement.locked { opacity: 0.5; border-left: 4px solid #444; }
+        .achievement-icon { font-size: 28px; }
+        .achievement-info { flex: 1; }
+        .achievement-name { font-weight: 600; font-size: 14px; }
+        .achievement-desc { font-size: 12px; opacity: 0.6; }
+        
+        /* Referral */
+        .referral-box {
+            background: var(--card);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .referral-link {
+            background: rgba(255,255,255,0.05);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        .referral-link:active { background: rgba(255,255,255,0.1); }
+        
+        /* Toast */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 999;
+            backdrop-filter: blur(10px);
+            max-width: 90%;
+            text-align: center;
+        }
+        #toast.show { opacity: 1; }
+        
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            margin: 8px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Responsive */
+        @media (max-width: 380px) {
+            .click-btn { width: 170px; height: 170px; font-size: 70px; }
+            .balance { font-size: 40px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Загрузка данных...</p>
+    </div>
+    
+    <div class="container" id="game" style="display:none">
+        <!-- Header -->
+        <div class="header">
+            <div class="level-badge" id="levelBadge">🏅 Ур. 1</div>
+            <div class="daily-bonus" id="dailyBonus">🎁 Ежедневный бонус</div>
+        </div>
+        
+        <!-- Coin -->
+        <div class="coin-section">
+            <div class="balance" id="balance">0</div>
+            <button class="click-btn" id="clickBtn">🪙</button>
+        </div>
+        
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-label">💪 Сила</div>
+                <div class="stat-value" id="clickPower">1</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">👆 Клики</div>
+                <div class="stat-value" id="totalClicks">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">🤖 Авто</div>
+                <div class="stat-value" id="autoPower">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">👥 Рефы</div>
+                <div class="stat-value" id="refCount">0</div>
+            </div>
+        </div>
+        
+        <!-- Level Progress -->
+        <div style="margin: 8px 0;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; opacity:0.6;">
+                <span>До следующего уровня</span>
+                <span id="levelProgressText">0 / 100</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="levelProgress" style="width:0%"></div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="shop">🛒 Магазин</button>
+            <button class="tab" data-tab="achievements">🏆 Ачивки</button>
+            <button class="tab" data-tab="referral">👥 Рефералы</button>
+        </div>
+        
+        <!-- Shop Tab -->
+        <div class="tab-content active" id="tab-shop">
+            <div class="shop-item">
+                <div class="shop-item-info">
+                    <div class="shop-item-title">⚡ Усиление клика</div>
+                    <div class="shop-item-desc">+1 к силе клика</div>
+                </div>
+                <button class="shop-item-price" id="buyPower">50 🪙</button>
+            </div>
+            <div class="shop-item">
+                <div class="shop-item-info">
+                    <div class="shop-item-title">🤖 Автокликер</div>
+                    <div class="shop-item-desc">+1 авто-клик в секунду</div>
+                </div>
+                <button class="shop-item-price" id="buyAuto">100 🪙</button>
+            </div>
+            <div class="shop-item">
+                <div class="shop-item-info">
+                    <div class="shop-item-title">🚀 Супер-буст</div>
+                    <div class="shop-item-desc">+5 к силе клика</div>
+                </div>
+                <button class="shop-item-price" id="buySuperBoost">200 🪙</button>
+            </div>
+            <div class="shop-item">
+                <div class="shop-item-info">
+                    <div class="shop-item-title">💎 Мега-буст</div>
+                    <div class="shop-item-desc">+25 к силе клика</div>
+                </div>
+                <button class="shop-item-price" id="buyMegaBoost">1000 🪙</button>
+            </div>
+            <div class="shop-item">
+                <div class="shop-item-info">
+                    <div class="shop-item-title">🎨 Скин: Золотой</div>
+                    <div class="shop-item-desc">Измени цвет монетки</div>
+                </div>
+                <button class="shop-item-price" id="buySkin">500 🪙</button>
+            </div>
+        </div>
+        
+        <!-- Achievements Tab -->
+        <div class="tab-content" id="tab-achievements">
+            <div id="achievementsList"></div>
+        </div>
+        
+        <!-- Referral Tab -->
+        <div class="tab-content" id="tab-referral">
+            <div class="referral-box">
+                <p style="margin-bottom:12px;">👥 Приглашай друзей и получай бонусы!</p>
+                <p style="font-size:13px; opacity:0.6;">За каждого друга ты получишь <strong style="color:var(--gold);">50 🪙</strong></p>
+                <div class="referral-link" id="refLink">Загрузка ссылки...</div>
+                <button class="shop-item-price" id="copyRefLink" style="margin-top:10px;">📋 Копировать ссылку</button>
+                <div style="margin-top:12px; font-size:13px;">
+                    Приглашено друзей: <strong id="refCountDisplay">0</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    
+    // --- КОНФИГУРАЦИЯ: ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА ВАШ VERCEL API ---
+    const API_URL = 'https://telegram-clicker-red.vercel.app/api';  // ← СЮДА ВСТАВЬТЕ СВОЙ URL
+    
+    const BOT_USERNAME = 'Clickertechtestbot'; // Без @, для реферальной ссылки
+    
+    // --- Состояние ---
+    let state = {
+        balance: 0,
+        clickPower: 1,
+        totalClicks: 0,
+        autoPower: 0,
+        refCount: 0,
+        totalEarned: 0,
+        achievements: [],
+        skin: 'default',
+        dailyBonusClaimed: false,
+        lastDailyBonus: 0
+    };
+    let userId = tg.initDataUnsafe?.user?.id || 'anonymous';
+    let username = tg.initDataUnsafe?.user?.username || 'user';
+    let isSaving = false;
+    let autoInterval = null;
+    
+    // --- DOM ---
+    const loading = document.getElementById('loading');
+    const game = document.getElementById('game');
+    const balanceEl = document.getElementById('balance');
+    const clickPowerEl = document.getElementById('clickPower');
+    const totalClicksEl = document.getElementById('totalClicks');
+    const autoPowerEl = document.getElementById('autoPower');
+    const refCountEl = document.getElementById('refCount');
+    const refCountDisplay = document.getElementById('refCountDisplay');
+    const levelBadge = document.getElementById('levelBadge');
+    const levelProgress = document.getElementById('levelProgress');
+    const levelProgressText = document.getElementById('levelProgressText');
+    const clickBtn = document.getElementById('clickBtn');
+    const dailyBonusBtn = document.getElementById('dailyBonus');
+    const toast = document.getElementById('toast');
+    const refLink = document.getElementById('refLink');
+    
+    // --- Toast ---
+    function showToast(msg, duration = 2000) {
+        toast.textContent = msg;
+        toast.classList.add('show');
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => toast.classList.remove('show'), duration);
+    }
+    
+    // --- API ---
+    async function loadData() {
+        try {
+            const res = await fetch(`${API_URL}?userId=${userId}`);
+            if (!res.ok) throw new Error('Ошибка загрузки');
+            const data = await res.json();
+            state = { ...state, ...data };
+            
+            // Конвертируем строки в булевы
+            state.dailyBonusClaimed = data.dailyBonusClaimed === true || data.dailyBonusClaimed === 'true';
+            state.achievements = data.achievements || [];
+            
+            // Проверяем ежедневный бонус
+            const today = new Date().toDateString();
+            if (state.lastDailyBonus === today) {
+                state.dailyBonusClaimed = true;
+            } else {
+                state.dailyBonusClaimed = false;
+            }
+            
+            updateUI();
+            checkAchievements();
+            startAutoClicker();
+        } catch (error) {
+            console.error('Ошибка загрузки:', error);
+            const saved = localStorage.getItem(`clicker_${userId}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                state = { ...state, ...parsed };
+                updateUI();
+                showToast('Загружено из кэша');
+            }
+        } finally {
+            loading.style.display = 'none';
+            game.style.display = 'block';
+        }
+    }
+    
+    async function saveData() {
+        if (isSaving) return;
+        isSaving = true;
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: userId,
+                    ...state
+                })
+            });
+            if (!res.ok) throw new Error('Ошибка сохранения');
+            localStorage.setItem(`clicker_${userId}`, JSON.stringify(state));
+        } catch (error) {
+            console.error('Ошибка сохранения:', error);
+            localStorage.setItem(`clicker_${userId}`, JSON.stringify(state));
+        } finally {
+            isSaving = false;
+        }
+    }
+    
+    // --- UI ---
+    function updateUI() {
+        balanceEl.textContent = Math.floor(state.balance);
+        clickPowerEl.textContent = state.clickPower;
+        totalClicksEl.textContent = state.totalClicks;
+        autoPowerEl.textContent = state.autoPower;
+        refCountEl.textContent = state.refCount;
+        refCountDisplay.textContent = state.refCount;
+        
+        // Level
+        const level = calculateLevel(state.totalEarned);
+        state.level = level;
+        levelBadge.textContent = `🏅 Ур. ${level}`;
+        
+        const nextLevelExp = getLevelExp(level);
+        const currentExp = state.totalEarned - getLevelExp(level - 1);
+        const expNeeded = nextLevelExp - getLevelExp(level - 1);
+        const progress = Math.min((currentExp / expNeeded) * 100, 100);
+        levelProgress.style.width = `${progress}%`;
+        levelProgressText.textContent = `${Math.floor(currentExp)} / ${expNeeded}`;
+        
+        // Daily bonus
+        if (state.dailyBonusClaimed) {
+            dailyBonusBtn.classList.add('claimed');
+            dailyBonusBtn.textContent = '✅ Бонус получен';
+        } else {
+            dailyBonusBtn.classList.remove('claimed');
+            dailyBonusBtn.textContent = '🎁 Ежедневный бонус';
+        }
+        
+        // Skin
+        if (state.skin === 'gold') {
+            clickBtn.textContent = '🌟';
+        } else {
+            clickBtn.textContent = '🪙';
+        }
+        
+        // Achievements
+        renderAchievements();
+        
+        // Update shop buttons
+        document.querySelectorAll('.shop-item-price').forEach(btn => {
+            const price = parseInt(btn.textContent);
+            if (!isNaN(price)) {
+                btn.disabled = state.balance < price;
+            }
+        });
+    }
+    
+    // --- Level System ---
+    function calculateLevel(totalEarned) {
+        let level = 1;
+        let exp = 0;
+        while (totalEarned >= getLevelExp(level)) {
+            level++;
+        }
+        return level;
+    }
+    
+    function getLevelExp(level) {
+        return Math.floor(100 * Math.pow(1.5, level - 1));
+    }
+    
+    // --- Achievements ---
+    const ACHIEVEMENTS = [
+        { id: 'first_click', name: 'Первый шаг', desc: 'Сделай первый клик', icon: '👆', check: s => s.totalClicks >= 1 },
+        { id: 'click_100', name: 'Трудоголик', desc: '100 кликов', icon: '💪', check: s => s.totalClicks >= 100 },
+        { id: 'click_1000', name: 'Кликер-мастер', desc: '1000 кликов', icon: '🏆', check: s => s.totalClicks >= 1000 },
+        { id: 'click_10000', name: 'Легенда', desc: '10000 кликов', icon: '👑', check: s => s.totalClicks >= 10000 },
+        { id: 'balance_100', name: 'Копейщик', desc: 'Накопи 100 монет', icon: '💰', check: s => s.balance >= 100 },
+        { id: 'balance_1000', name: 'Миллионер', desc: 'Накопи 1000 монет', icon: '💎', check: s => s.balance >= 1000 },
+        { id: 'balance_10000', name: 'Магнат', desc: 'Накопи 10000 монет', icon: '🤑', check: s => s.balance >= 10000 },
+        { id: 'power_10', name: 'Силач', desc: 'Сила клика 10+', icon: '💥', check: s => s.clickPower >= 10 },
+        { id: 'power_50', name: 'Гигант', desc: 'Сила клика 50+', icon: '⚡', check: s => s.clickPower >= 50 },
+        { id: 'power_100', name: 'Бог', desc: 'Сила клика 100+', icon: '🌋', check: s => s.clickPower >= 100 },
+        { id: 'auto_10', name: 'Автоматчик', desc: '10 авто-кликов/сек', icon: '🤖', check: s => s.autoPower >= 10 },
+        { id: 'ref_1', name: 'Лидер', desc: 'Пригласи 1 друга', icon: '👥', check: s => s.refCount >= 1 },
+        { id: 'ref_5', name: 'Популярный', desc: 'Пригласи 5 друзей', icon: '🌟', check: s => s.refCount >= 5 },
+        { id: 'ref_10', name: 'Знаменитость', desc: 'Пригласи 10 друзей', icon: '⭐', check: s => s.refCount >= 10 },
+        { id: 'level_10', name: 'Мастер', desc: 'Достигни 10 уровня', icon: '🎯', check: s => calculateLevel(s.totalEarned) >= 10 },
+        { id: 'level_25', name: 'Легендарный', desc: 'Достигни 25 уровня', icon: '🔥', check: s => calculateLevel(s.totalEarned) >= 25 },
+        { id: 'level_50', name: 'Мифический', desc: 'Достигни 50 уровня', icon: '✨', check: s => calculateLevel(s.totalEarned) >= 50 },
+    ];
+    
+    function checkAchievements() {
+        let newAchievements = [];
+        ACHIEVEMENTS.forEach(ach => {
+            if (!state.achievements.includes(ach.id) && ach.check(state)) {
+                state.achievements.push(ach.id);
+                newAchievements.push(ach);
+                showToast(`🏆 Достижение разблокировано: ${ach.icon} ${ach.name}`, 3000);
+                
+                // Бонус за достижение
+                const bonus = Math.floor(Math.random() * 50) + 10;
+                state.balance += bonus;
+                showToast(`🎁 Бонус ${bonus} 🪙 за достижение!`, 2000);
+            }
+        });
+        if (newAchievements.length > 0) {
+            saveData();
+            updateUI();
+        }
+    }
+    
+    function renderAchievements() {
+        const list = document.getElementById('achievementsList');
+        list.innerHTML = ACHIEVEMENTS.map(ach => {
+            const unlocked = state.achievements.includes(ach.id);
+            return `
+                <div class="achievement ${unlocked ? 'unlocked' : 'locked'}">
+                    <div class="achievement-icon">${ach.icon}</div>
+                    <div class="achievement-info">
+                        <div class="achievement-name">${unlocked ? '✅ ' : '🔒 '} ${ach.name}</div>
+                        <div class="achievement-desc">${ach.desc}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // --- Auto Clicker ---
+    function startAutoClicker() {
+        if (autoInterval) clearInterval(autoInterval);
+        if (state.autoPower > 0) {
+            autoInterval = setInterval(() => {
+                state.balance += state.autoPower;
+                state.totalEarned += state.autoPower;
+                updateUI();
+                saveData();
+            }, 1000);
+        }
+    }
+    
+    // --- Daily Bonus ---
+    async function claimDailyBonus() {
+        if (state.dailyBonusClaimed) {
+            showToast('❌ Бонус уже получен сегодня!');
+            return;
+        }
+        
+        const bonus = 100 + state.level * 10;
+        state.balance += bonus;
+        state.totalEarned += bonus;
+        state.dailyBonusClaimed = true;
+        state.lastDailyBonus = new Date().toDateString();
+        
+        updateUI();
+        await saveData();
+        showToast(`🎁 Получено ${bonus} 🪙! Завтра приходи снова!`, 3000);
+        
+        if (tg.HapticFeedback) {
+            tg.HapticFeedback.notificationOccurred('success');
+        }
+    }
+    
+    // --- Referral ---
+    function generateReferralLink() {
+        const refCode = btoa(`${userId}:${Date.now()}`).slice(0, 16);
+        return `https://t.me/${BOT_USERNAME}?start=ref_${refCode}`;
+    }
+    
+    function copyRefLink() {
+        const link = refLink.textContent;
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(link).then(() => {
+                showToast('✅ Ссылка скопирована!');
+            });
+        } else {
+            // Fallback
+            const textarea = document.createElement('textarea');
+            textarea.value = link;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast('✅ Ссылка скопирована!');
+        }
+    }
+    
+    // --- Shop ---
+    function buyItem(cost, action, successMsg) {
+        if (state.balance < cost) {
+            showToast('❌ Недостаточно монет!');
+            return;
+        }
+        state.balance -= cost;
+        action();
+        updateUI();
+        saveData();
+        showToast(successMsg);
+        if (tg.HapticFeedback) {
+            tg.HapticFeedback.impactOccurred('medium');
+        }
+        checkAchievements();
+    }
+    
+    // --- Game Logic ---
+    function handleClick(e) {
+        // Ripple effect
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const ripple = document.createElement('div');
+        ripple.className = 'click-effect';
+        ripple.style.width = ripple.style.height = '40px';
+        ripple.style.left = (x - 20) + 'px';
+        ripple.style.top = (y - 20) + 'px';
+        e.currentTarget.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 600);
+        
+        state.balance += state.clickPower;
+        state.totalClicks += 1;
+        state.totalEarned += state.clickPower;
+        
+        updateUI();
+        saveData();
+        checkAchievements();
+    }
+    
+    // --- Tabs ---
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+        });
+    });
+    
+    // --- Init ---
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadData();
+        
+        // Events
+        clickBtn.addEventListener('click', handleClick);
+        
+        // Long press auto-click
+        let autoClickInterval;
+        clickBtn.addEventListener('touchstart', () => {
+            autoClickInterval = setInterval(handleClick, 100);
+        });
+        clickBtn.addEventListener('touchend', () => clearInterval(autoClickInterval));
+        clickBtn.addEventListener('touchcancel', () => clearInterval(autoClickInterval));
+        clickBtn.addEventListener('mousedown', () => {
+            autoClickInterval = setInterval(handleClick, 100);
+        });
+        clickBtn.addEventListener('mouseup', () => clearInterval(autoClickInterval));
+        clickBtn.addEventListener('mouseleave', () => clearInterval(autoClickInterval));
+        
+        dailyBonusBtn.addEventListener('click', claimDailyBonus);
+        
+        // Shop
+        document.getElementById('buyPower').addEventListener('click', () => {
+            buyItem(50, () => state.clickPower += 1, '⚡ Сила клика +1!');
+        });
+        document.getElementById('buyAuto').addEventListener('click', () => {
+            buyItem(100, () => {
+                state.autoPower += 1;
+                startAutoClicker();
+            }, '🤖 Автокликер +1/сек!');
+        });
+        document.getElementById('buySuperBoost').addEventListener('click', () => {
+            buyItem(200, () => state.clickPower += 5, '🚀 Супер-буст +5!');
+        });
+        document.getElementById('buyMegaBoost').addEventListener('click', () => {
+            buyItem(1000, () => state.clickPower += 25, '💎 Мега-буст +25!');
+        });
+        document.getElementById('buySkin').addEventListener('click', () => {
+            buyItem(500, () => {
+                state.skin = state.skin === 'gold' ? 'default' : 'gold';
+            }, state.skin === 'gold' ? '🎨 Скин: Золотой активирован!' : '🎨 Скин снят');
+        });
+        
+        // Referral
+        refLink.textContent = generateReferralLink();
+        document.getElementById('copyRefLink').addEventListener('click', copyRefLink);
+        
+        // Save on close
+        tg.onEvent('viewportChanged', saveData);
+        window.addEventListener('beforeunload', saveData);
+        
+        updateUI();
+        checkAchievements();
+    });
+</script>
+</body>
+</html>
