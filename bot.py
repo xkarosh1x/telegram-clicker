@@ -23,7 +23,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 # --- КОНФИГ ---
-WEBAPP_URL = os.environ.get('WEBAPP_URL', 'https://твой-username.github.io/telegram-clicker')
+WEBAPP_URL = os.environ.get('WEBAPP_URL', 'https://xkarosh1x.github.io/telegram-clicker')
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_ANON_KEY')
 
